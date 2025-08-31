@@ -3,30 +3,80 @@ package asm
 import cpu.Memory
 import model.*
 
+/**
+ * Parses assembly source code into a list of instructions and a map of labels.
+ *
+ * The parser supports the following features:
+ * - Sections: `.data` and `.code` for organizing data and instructions.
+ * - Labels: For defining jump targets and data locations.
+ * - Instructions: A subset of x86 assembly instructions (MOV, ADD, SUB, etc.).
+ * - Operands: Registers (AX, BX, etc.), immediate values, memory addresses (direct and register-based).
+ * - Data Directives: `DB` (Define Byte), `DW` (Define Word), `DD` (Define Double Word) for reserving and initializing memory.
+ * - Comments: Lines starting with `;` or everything after a `:` in a label definition.
+ *
+ * The parser performs a two-pass process (conceptually):
+ * 1. **Symbol Table Construction:** Identifies labels and data symbols, storing their addresses.
+ * 2. **Instruction Generation:** Parses instructions, resolving symbols to their addresses.
+ *
+ * **Memory Layout:**
+ * - Data segment starts at `0x1000` (4KB) by default, leaving space for system/code.
+ *
+ * @property mem The [Memory] instance where data will be stored.
+ * @param src The assembly source code as a string.
+ */
 class Parser(src: String, private val mem: Memory) {
     private val lex = Lexer(src)
     private var look: Token = lex.nextToken()
     private var currentSection = Section.CODE
     private val dataSymbols = mutableMapOf<String, Int>() // symbol -> address
-    private var dataPtr = 0x1000 // Data segment starts at 4KB, leaving space for system/code
+    private var dataPtr = 0x1000 // Data segment starts at 4KB, leaving space for system/code.
 
+    /**
+     * Consumes the current token if its kind matches the expected kind.
+     *
+     * @param kind The expected [Token.Kind].
+     * @return The consumed [Token].
+     * @throws IllegalStateException if the current token's kind does not match the expected kind.
+     */
     private fun eat(kind: Token.Kind): Token {
         if (look.kind != kind) error("Parse error at line ${look.line}: expected $kind, got ${look.kind}")
         val t = look
         look = lex.nextToken()
         return t
     }
+
+    /**
+     * Tries to consume the current token if its kind matches the expected kind.
+     *
+     * @param kind The expected [Token.Kind].
+     * @return The consumed [Token] if successful, or `null` otherwise.
+     */
     private fun tryEat(kind: Token.Kind): Token? = if (look.kind == kind) eat(kind) else null
+
+    /**
+     * Checks if the current token is a newline or end-of-file.
+     *
+     * @return `true` if the current token is a newline or EOF, `false` otherwise.
+     */
     private fun isNewlineOrEOF() = look.kind == Token.Kind.NEWLINE || look.kind == Token.Kind.EOF
 
+    /**
+     * Parses a string representation of a number into an integer.
+     * Supports decimal, hexadecimal (0x prefix or h suffix).
+     * The result is masked to ensure it fits within the target bit width.
+     *
+     * @param text The string representation of the number.
+     * @return The parsed integer value.
+     */
     private fun parseNumber(text: String): Int {
         val t = text.lowercase()
         return when {
             t.startsWith("0x") -> t.substring(2).toInt(16)
             t.endsWith("h") -> t.dropLast(1).toInt(16)
             else -> t.toInt()
-        } and 0xFFFF
+        } // Masking is handled by memory write operations based on data type (DB, DW, DD)
     }
+
     private fun parseReg(id: String): Reg? = when(id.uppercase()) {
         "AX"-> Reg.AX
         "BX"-> Reg.BX
@@ -39,6 +89,11 @@ class Parser(src: String, private val mem: Memory) {
         else -> null
     }
 
+    /**
+     * Parses an operand from the token stream.
+     *
+     * @return The parsed [Operand].
+     */
     private fun parseOperand(): Operand {
         return when (look.kind) {
             Token.Kind.ID -> {
@@ -50,7 +105,7 @@ class Parser(src: String, private val mem: Memory) {
                 // If it's not a register or a known data symbol, assume it's a code label.
                 return Operand.LabelOp(idTok.text)
             }
-            Token.Kind.NUMBER -> Operand.ImmOp(parseNumber(eat(Token.Kind.NUMBER).text))
+            Token.Kind.NUMBER -> Operand.Imm32Op(parseNumber(eat(Token.Kind.NUMBER).text))
             Token.Kind.LBRACK -> {
                 eat(Token.Kind.LBRACK)
                 var base: Reg? = null
@@ -75,6 +130,12 @@ class Parser(src: String, private val mem: Memory) {
         }
     }
 
+    /**
+     * Parses an opcode string into an [Op] enum.
+     *
+     * @param id The string representation of the opcode.
+     * @return The corresponding [Op].
+     */
     private fun parseOp(id: String): Op = when(id.uppercase()) {
         "MOV"-> Op.MOV
         "ADD"-> Op.ADD
@@ -98,11 +159,21 @@ class Parser(src: String, private val mem: Memory) {
         else -> error("Line ${look.line}: unknown opcode $id")
     }
 
+    /**
+     * Data class to hold the result of parsing the program.
+     *
+     * @property instructions The list of parsed [Instruction]s.
+     * @property labels A mutable map of label names to their corresponding instruction index.
+     */
     data class ParsedProgram(
         val instructions: List<Instruction>,
         val labels: MutableMap<String, Int> // label -> instruction index
     )
 
+    /**
+     * Parses the entire assembly program.
+     * @return A [ParsedProgram] object containing the parsed instructions and labels.
+     */
     fun parseProgram(): ParsedProgram {
         val instructions = mutableListOf<Instruction>()
         val labels = mutableMapOf<String, Int>()
@@ -155,12 +226,29 @@ class Parser(src: String, private val mem: Memory) {
                     // Data
                     if (currentSection == Section.DATA) {
                         val typeTok = eat(Token.Kind.ID)
-                        if (typeTok.text.uppercase() != "DW") error("Only DW supported")
                         val valTok = if (look.kind == Token.Kind.NUMBER) eat(Token.Kind.NUMBER) else null
                         val value = if (valTok != null) parseNumber(valTok.text) else 0
                         dataSymbols[id] = dataPtr
-                        mem.write16(dataPtr, value)
-                        dataPtr += 2
+
+                        when (typeTok.text.uppercase()) {
+                            "DB" -> { // Define Byte (8-bit)
+                                if (value < -128 || value > 255) error("Line ${typeTok.line}: Value out of 8-bit range for DB: $value")
+                                mem.write8(dataPtr.toLong(), value.toLong())
+                                dataPtr += 1
+                            }
+                            "DW" -> { // Define Word (16-bit)
+                                if (value < -32768 || value > 65535) error("Line ${typeTok.line}: Value out of 16-bit range for DW: $value")
+                                mem.write16(dataPtr.toLong(), value.toLong())
+                                dataPtr += 2
+                            }
+                            "DD" -> { // Define Double Word (32-bit)
+                                // No practical upper limit for Int in Kotlin for positive, but consider signed range
+                                // mem.write32 will handle the conversion to bytes
+                                mem.write32(dataPtr.toLong(), value.toLong())
+                                dataPtr += 4
+                            }
+                            else -> error("Line ${typeTok.line}: Unsupported data directive '${typeTok.text}'. Supported: DB, DW, DD")
+                        }
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
                         continue

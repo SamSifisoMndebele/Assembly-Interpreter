@@ -6,7 +6,7 @@ import model.*
 class Parser(src: String, private val mem: Memory) {
     private val lex = Lexer(src)
     private var look: Token = lex.nextToken()
-    private var currentSection = Section.NONE
+    private var currentSection = Section.CODE
     private val dataSymbols = mutableMapOf<String, Int>()
     private var dataPtr = 0x2000
 
@@ -114,6 +114,17 @@ class Parser(src: String, private val mem: Memory) {
                     // Could be a label or an opcode
                     val idTok = eat(Token.Kind.ID)
                     val id = idTok.text
+
+                    // Comments
+                    if (tryEat(Token.Kind.COLON) != null) {
+                        labels[id] = instrs.size // points to the next instruction index
+                        // consume any trailing tokens until the newline
+                        while (!isNewlineOrEOF()) look = lex.nextToken()
+                        tryEat(Token.Kind.NEWLINE)
+                        continue
+                    }
+
+                    // Check section
                     if (id.startsWith(".")) {
                         when(id.lowercase()) {
                             ".data" -> currentSection = Section.DATA
@@ -124,26 +135,8 @@ class Parser(src: String, private val mem: Memory) {
                         tryEat(Token.Kind.NEWLINE)
                         continue
                     }
-                    if (currentSection == Section.DATA) {
-                        val symName = id
-                        val typeTok = eat(Token.Kind.ID)
-                        if (typeTok.text.uppercase() != "DW") error("Only DW supported")
-                        val valTok = if (look.kind == Token.Kind.NUMBER) eat(Token.Kind.NUMBER) else null
-                        val value = if (valTok != null) parseNumber(valTok.text) else 0
-                        dataSymbols[symName] = dataPtr
-                        mem.write16(dataPtr, value)
-                        dataPtr += 2
-                        while (!isNewlineOrEOF()) look = lex.nextToken()
-                        tryEat(Token.Kind.NEWLINE)
-                        continue
-                    }
-                    if (tryEat(Token.Kind.COLON) != null) {
-                        labels[id] = instrs.size // points to the next instruction index
-                        // consume any trailing tokens until the newline
-                        while (!isNewlineOrEOF()) look = lex.nextToken()
-                        tryEat(Token.Kind.NEWLINE)
-                        continue
-                    }
+
+                    // Opcode
                     if (currentSection == Section.CODE) {
                         val op = parseOp(id)
                         var dst: Operand? = null
@@ -157,6 +150,21 @@ class Parser(src: String, private val mem: Memory) {
                         }
                         tryEat(Token.Kind.NEWLINE)
                         instrs.add(Instruction(op, dst, src, idTok.line))
+                        continue
+                    }
+
+                    // Data
+                    if (currentSection == Section.DATA) {
+                        val typeTok = eat(Token.Kind.ID)
+                        if (typeTok.text.uppercase() != "DW") error("Only DW supported")
+                        val valTok = if (look.kind == Token.Kind.NUMBER) eat(Token.Kind.NUMBER) else null
+                        val value = if (valTok != null) parseNumber(valTok.text) else 0
+                        dataSymbols[id] = dataPtr
+                        mem.write16(dataPtr, value)
+                        dataPtr += 2
+                        while (!isNewlineOrEOF()) look = lex.nextToken()
+                        tryEat(Token.Kind.NEWLINE)
+                        continue
                     }
                 }
                 else -> {

@@ -19,6 +19,16 @@ import model.Reg
  * @property flags An instance of the [Flags] data class, representing the current
  *                 state of the CPU's status flags (e.g., zero flag, carry flag).
  *                 Initialized with default flag values.
+ *                 The [Flags] data class contains the following boolean properties:
+ *                 - `CF` (Carry Flag): Set if an arithmetic operation generates a carry or a borrow out of the most significant bit.
+ *                 - `PF` (Parity Flag): Set if the least significant byte of the result has an even number of 1 bits.
+ *                 - `AF` (Auxiliary Carry Flag): Set if an arithmetic operation generates a carry or a borrow out of bit 3. Used for BCD arithmetic.
+ *                 - `ZF` (Zero Flag): Set if the result of an arithmetic operation is zero.
+ *                 - `SF` (Sign Flag): Set if the most significant bit of the result is 1 (indicating a negative number for signed integers).
+ *                 - `TF` (Trap Flag): If set, the processor generates a single-step interrupt after each instruction.
+ *                 - `IF` (Interrupt Enable Flag): If set, maskable hardware interrupts are enabled.
+ *                 - `DF` (Direction Flag): Controls the direction of string operations (0 for incrementing, 1 for decrementing).
+ *                 - `OF` (Overflow Flag): Set if the integer result is too large a positive number or too small a negative number (excluding the sign bit) to fit in the destination operand.
  */
 data class CPU(
     val regs: MutableMap<Reg, Long> = mutableMapOf(

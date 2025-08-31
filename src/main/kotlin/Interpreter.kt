@@ -168,4 +168,21 @@ class Interpreter(private val program: List<Instruction>, private val labels: Ma
             }
         }
     }
+
+    fun printRegisters() {
+        println("CPU Registers:")
+        cpu.regs.forEach { (r, v) -> println("$r: $v") }
+    }
+
+    fun printMemory() {
+        println("Memory:")
+        for (i in 0 until 0x10000 step 16) {
+            print("${i.toString(16).padStart(4, '0')} | ")
+            for (j in 0 until 16) {
+                val v = mem.read8(i + j)
+                print("${v.toString(16).padStart(2, '0')} ")
+            }
+            println()
+        }
+    }
 }

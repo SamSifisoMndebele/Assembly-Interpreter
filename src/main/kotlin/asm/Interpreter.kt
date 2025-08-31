@@ -7,9 +7,8 @@ import model.Op
 import model.Operand
 import model.Reg
 
-class Interpreter(private val program: List<Instruction>, private val labels: Map<String, Int>) {
+class Interpreter(private val program: List<Instruction>, private val labels: Map<String, Int>, private val mem: Memory) {
     private val cpu = CPU()
-    private val mem = Memory()
 
     private fun readReg(r: Reg) = cpu.regs[r]!! and 0xFFFF
     private fun writeReg(r: Reg, v: Int) { cpu.regs[r] = v and 0xFFFF }

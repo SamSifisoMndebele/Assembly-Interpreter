@@ -8,7 +8,6 @@ class Memory(memSize: Int = 64) { // 64KB
     fun write8(addr: Int, value: Int) {
         mem[addr and 0xFFFF] = (value and 0xFF).toByte()
     }
-
     fun read16(addr: Int): Int {
         val lo = read8(addr)
         val hi = read8(addr + 1)

@@ -1,10 +1,14 @@
 package asm
 
+import cpu.Memory
 import model.*
 
-class Parser(src: String) {
+class Parser(src: String, private val mem: Memory) {
     private val lex = Lexer(src)
     private var look: Token = lex.nextToken()
+    private var currentSection = Section.NONE
+    private val dataSymbols = mutableMapOf<String, Int>()
+    private var dataPtr = 0x2000
 
     private fun eat(kind: Token.Kind): Token {
         if (look.kind != kind) error("Parse error at line ${look.line}: expected $kind, got ${look.kind}")
@@ -12,15 +16,10 @@ class Parser(src: String) {
         look = lex.nextToken()
         return t
     }
-
-    private fun tryEat(kind: Token.Kind): Token? {
-        if (look.kind == kind) return eat(kind)
-        return null
-    }
-
+    private fun tryEat(kind: Token.Kind): Token? = if (look.kind == kind) eat(kind) else null
     private fun isNewlineOrEOF() = look.kind == Token.Kind.NEWLINE || look.kind == Token.Kind.EOF
 
-    private fun parseNumber(text: String, line: Int): Int {
+    private fun parseNumber(text: String): Int {
         val t = text.lowercase()
         return when {
             t.startsWith("0x") -> t.substring(2).toInt(16)
@@ -28,7 +27,6 @@ class Parser(src: String) {
             else -> t.toInt()
         } and 0xFFFF
     }
-
     private fun parseReg(id: String): Reg? = when(id.uppercase()) {
         "AX"-> Reg.AX
         "BX"-> Reg.BX
@@ -47,13 +45,12 @@ class Parser(src: String) {
                 val idTok = eat(Token.Kind.ID)
                 val reg = parseReg(idTok.text)
                 if (reg != null) return Operand.RegOp(reg)
-                // If it's an identifier not a register, treat it as a symbolic label.
+                val symAddr = dataSymbols[idTok.text]
+                if (symAddr != null) return Operand.MemOp(null, symAddr) // `mov ax, var` -> `mov ax, [address_of_var]`
+                // If it's not a register or a known data symbol, assume it's a code label.
                 return Operand.LabelOp(idTok.text)
             }
-            Token.Kind.NUMBER -> {
-                val nTok = eat(Token.Kind.NUMBER)
-                Operand.ImmOp(parseNumber(nTok.text, nTok.line))
-            }
+            Token.Kind.NUMBER -> Operand.ImmOp(parseNumber(eat(Token.Kind.NUMBER).text))
             Token.Kind.LBRACK -> {
                 eat(Token.Kind.LBRACK)
                 var base: Reg? = null
@@ -62,17 +59,13 @@ class Parser(src: String) {
                     Token.Kind.ID -> {
                         val idTok = eat(Token.Kind.ID)
                         val r = parseReg(idTok.text)
-                        if (r != null) base = r else error("Line ${idTok.line}: unknown base register ${idTok.text}")
-                        if (tryEat(Token.Kind.PLUS) != null) {
-                            disp = when(look.kind){
-                                Token.Kind.NUMBER -> parseNumber(eat(Token.Kind.NUMBER).text, idTok.line)
-                                else -> error("Line ${idTok.line}: expected displacement number after +")
-                            }
+                        if (r != null) base = r else {
+                            val addr = dataSymbols[idTok.text] ?: error("Unknown symbol ${idTok.text}")
+                            disp = addr
                         }
+                        if (tryEat(Token.Kind.PLUS) != null) disp = parseNumber(eat(Token.Kind.NUMBER).text)
                     }
-                    Token.Kind.NUMBER -> {
-                        disp = parseNumber(eat(Token.Kind.NUMBER).text, look.line)
-                    }
+                    Token.Kind.NUMBER -> { disp = parseNumber(eat(Token.Kind.NUMBER).text) }
                     else -> error("Line ${look.line}: bad memory operand")
                 }
                 eat(Token.Kind.RBRACK)
@@ -106,16 +99,13 @@ class Parser(src: String) {
     }
 
     data class ParsedProgram(
-        val instructions: MutableList<Instruction>,
+        val instructions: List<Instruction>,
         val labels: MutableMap<String, Int> // label -> instruction index
     )
 
     fun parseProgram(): ParsedProgram {
         val instrs = mutableListOf<Instruction>()
         val labels = mutableMapOf<String, Int>()
-
-        fun atLineStart(): Boolean = true // (not strictly tracked; fine for MVP)
-
         while (true) {
             when (look.kind) {
                 Token.Kind.EOF -> return ParsedProgram(instrs, labels)
@@ -123,30 +113,50 @@ class Parser(src: String) {
                 Token.Kind.ID -> {
                     // Could be a label or an opcode
                     val idTok = eat(Token.Kind.ID)
-                    if (tryEat(Token.Kind.COLON) != null) {
-                        // label
-                        val name = idTok.text
-                        labels[name] = instrs.size // points to next instruction index
-                        // consume any trailing tokens until newline
-                        while (!isNewlineOrEOF()) { look = lex.nextToken() }
+                    val id = idTok.text
+                    if (id.startsWith(".")) {
+                        when(id.lowercase()) {
+                            ".data" -> currentSection = Section.DATA
+                            ".code" -> currentSection = Section.CODE
+                            ".stack" -> currentSection = Section.STACK
+                        }
+                        while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
                         continue
-                    } else {
-                        // opcode path
-                        val op = parseOp(idTok.text)
+                    }
+                    if (currentSection == Section.DATA) {
+                        val symName = id
+                        val typeTok = eat(Token.Kind.ID)
+                        if (typeTok.text.uppercase() != "DW") error("Only DW supported")
+                        val valTok = if (look.kind == Token.Kind.NUMBER) eat(Token.Kind.NUMBER) else null
+                        val value = if (valTok != null) parseNumber(valTok.text) else 0
+                        dataSymbols[symName] = dataPtr
+                        mem.write16(dataPtr, value)
+                        dataPtr += 2
+                        while (!isNewlineOrEOF()) look = lex.nextToken()
+                        tryEat(Token.Kind.NEWLINE)
+                        continue
+                    }
+                    if (tryEat(Token.Kind.COLON) != null) {
+                        labels[id] = instrs.size // points to the next instruction index
+                        // consume any trailing tokens until the newline
+                        while (!isNewlineOrEOF()) look = lex.nextToken()
+                        tryEat(Token.Kind.NEWLINE)
+                        continue
+                    }
+                    if (currentSection == Section.CODE) {
+                        val op = parseOp(id)
                         var dst: Operand? = null
                         var src: Operand? = null
                         if (!isNewlineOrEOF()) {
                             // dst
                             dst = parseOperand()
-                            if (tryEat(Token.Kind.COMMA) != null) {
-                                src = parseOperand()
-                            }
+                            if (tryEat(Token.Kind.COMMA) != null) src = parseOperand()
                             // eat rest of line
                             while (!isNewlineOrEOF()) look = lex.nextToken()
                         }
                         tryEat(Token.Kind.NEWLINE)
-                        instrs.add(Instruction(op, dst, src, null, idTok.line))
+                        instrs.add(Instruction(op, dst, src, idTok.line))
                     }
                 }
                 else -> {

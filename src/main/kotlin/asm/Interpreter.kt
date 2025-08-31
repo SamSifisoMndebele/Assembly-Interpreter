@@ -12,7 +12,7 @@ class Interpreter(private val program: List<Instruction>, private val labels: Ma
 
     init {
         // Initialize Stack Pointer to the top of memory.
-        writeReg(Reg.SP, mem.size and 0xFFFF)
+        cpu.regs[Reg.SP] = mem.size and 0xFFFFFFFFFFFF
     }
 
     private fun readReg(r: Reg) = cpu.regs[r]!! and 0xFFFF

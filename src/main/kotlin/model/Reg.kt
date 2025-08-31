@@ -1,45 +1,59 @@
 package model
 
 /**
- * Represents the general-purpose registers available in x86 architecture.
+ * Represents the registers available in an x86-like architecture.
  *
  * This enum class categorizes registers by their size: 8-bit, 16-bit, and 32-bit.
- *
- * **8-bit Registers:**
- *  - `AL`: Low byte of the AX register.
- *  - `AH`: High byte of the AX register.
- *  - `BL`: Low byte of the BX register.
- *  - `BH`: High byte of the BX register.
- *  - `CL`: Low byte of the CX register.
- *  - `CH`: High byte of the CX register.
- *  - `DL`: Low byte of the DX register.
- *  - `DH`: High byte of the DX register.
- *
- * **16-bit Registers:**
- *  - `AX`: Accumulator register (AL and AH combined).
- *  - `BX`: Base register (BL and BH combined).
- *  - `CX`: Count register (CL and CH combined).
- *  - `DX`: Data register (DL and DH combined).
- *  - `SI`: Source Index register.
- *  - `DI`: Destination Index register.
- *  - `BP`: Base Pointer register.
- *  - `SP`: Stack Pointer register.
- *
- * **32-bit Registers:**
- *  - `EAX`: Extended Accumulator register (includes AX).
- *  - `EBX`: Extended Base register (includes BX).
- *  - `ECX`: Extended Count register (includes CX).
- *  - `EDX`: Extended Data register (includes DX).
- *  - `ESI`: Extended Source Index register (includes SI).
- *  - `EDI`: Extended Destination Index register (includes DI).
- *  - `EBP`: Extended Base Pointer register (includes BP).
- *  - `ESP`: Extended Stack Pointer register (includes SP).
- */// General Purpose Registers
+ */
 enum class Reg {
-    // 8-bit registers
-    AL, AH, BL, BH, CL, CH, DL, DH,
-    // 16-bit registers
-    AX, BX, CX, DX, SI, DI, BP, SP,
-    // 32-bit registers
-    EAX, EBX, ECX, EDX, ESI, EDI, EBP, ESP
+    /** Accumulator Low byte (8-bit) */
+    AL,
+    /** Accumulator High byte (8-bit) */
+    AH,
+    /** Base Low byte (8-bit) */
+    BL,
+    /** Base High byte (8-bit) */
+    BH,
+    /** Count Low byte (8-bit) */
+    CL,
+    /** Count High byte (8-bit) */
+    CH,
+    /** Data Low byte (8-bit) */
+    DL,
+    /** Data High byte (8-bit) */
+    DH,
+
+    /** Accumulator register (16-bit) */
+    AX,
+    /** Base register (16-bit) */
+    BX,
+    /** Count register (16-bit) */
+    CX,
+    /** Data register (16-bit) */
+    DX,
+    /** Source Index register (16-bit) */
+    SI,
+    /** Destination Index register (16-bit) */
+    DI,
+    /** Base Pointer register (16-bit) */
+    BP,
+    /** Stack Pointer register (16-bit) */
+    SP,
+
+    /** Extended Accumulator register (32-bit) */
+    EAX,
+    /** Extended Base register (32-bit) */
+    EBX,
+    /** Extended Count register (32-bit) */
+    ECX,
+    /** Extended Data register (32-bit) */
+    EDX,
+    /** Extended Source Index register (32-bit) */
+    ESI,
+    /** Extended Destination Index register (32-bit) */
+    EDI,
+    /** Extended Base Pointer register (32-bit) */
+    EBP,
+    /** Extended Stack Pointer register (32-bit) */
+    ESP
 }

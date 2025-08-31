@@ -1,10 +1,10 @@
 
-;.data
-;x DW 5
-;y DW 7
-;sum DW ?
+.data
+x DW 5
+y DW 7
+sum DW ?
 
-;.code
+.code
     ; Compute 5 + 7, print it, store to [1000], then simple loop
     MOV AX, 5
     ADD AX, 7

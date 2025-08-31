@@ -1,4 +1,4 @@
-package ir
+package model
 
 data class Instruction(
     val op: Op,

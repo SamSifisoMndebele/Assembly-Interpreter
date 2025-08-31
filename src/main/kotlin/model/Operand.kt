@@ -1,6 +1,4 @@
-package ir
-
-import model.Reg
+package model
 
 sealed class Operand {
     data class RegOp(val reg: Reg): Operand()

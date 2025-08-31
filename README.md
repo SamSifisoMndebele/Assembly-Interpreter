@@ -52,7 +52,9 @@ This project requires a parser to convert assembly source code into an `Instruct
 
 ```bash
 # (This is a conceptual command, the actual entry point may vary)
-kotlin -jar interpreter.jar program.asm
+kotlinc src/**/*.kt -include-runtime -d interpreter.jar
+java -jar interpretermini-masm.jar program.asm
+
 ```
 
 The core execution logic resides in the `Interpreter` class. It processes a list of `Instruction` objects, simulating a 16-bit CPU and memory.

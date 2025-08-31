@@ -1,8 +1,10 @@
-import ir.Instruction
-import ir.Op
-import ir.Operand
-import model.CPU
-import model.Memory
+package asm
+
+import cpu.CPU
+import cpu.Memory
+import model.Instruction
+import model.Op
+import model.Operand
 import model.Reg
 
 class Interpreter(private val program: List<Instruction>, private val labels: Map<String, Int>) {

@@ -1,4 +1,7 @@
-package model
+package cpu
+
+import model.Flags
+import model.Reg
 
 data class CPU(
     val regs: MutableMap<Reg, Int> = mutableMapOf(

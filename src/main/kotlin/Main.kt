@@ -1,27 +1,10 @@
-import org.intellij.lang.annotations.Language
+import asm.Interpreter
+import asm.Parser
 import java.io.File
 
-@Language("asm")
-private val SAMPLE = """
-    ; Demo: compute 5 + 7, print it, store to [1000], then simple loop
-    MOV AX, 5
-    ADD AX, 7
-    MOV BX, 10
-    MOV [1000], AX
-
-    ; countdown from 3 to 0
-    MOV CX, 3
-loop_start:
-    DEC CX
-    CMP CX, 0
-    JG loop_start ; jump if greater than 0
-
-    INT 20h ; terminate
-"""
-
 fun main(args: Array<String>) {
-    val src = if (args.isEmpty()) SAMPLE else File(args[0]).readText()
-
+    val sourceFile = if (args.isEmpty()) "src/main/kotlin/main.asm" else args[0]
+    val src = File(sourceFile).readText()
     val parser = Parser(src)
     val parsed = parser.parseProgram()
     val interpreter = Interpreter(parsed.instructions, parsed.labels)

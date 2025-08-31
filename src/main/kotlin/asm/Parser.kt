@@ -1,8 +1,6 @@
-import ir.Instruction
-import ir.Op
-import ir.Operand
-import model.Reg
-import model.Token
+package asm
+
+import model.*
 
 class Parser(src: String) {
     private val lex = Lexer(src)

@@ -1,4 +1,4 @@
-package model
+package cpu
 
 class Memory(memSize: Int = 64) { // 64KB
     private val mem = ByteArray(memSize * 1024)

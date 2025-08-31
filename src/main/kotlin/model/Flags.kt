@@ -19,10 +19,21 @@ package model
  */
 @Suppress("PropertyName")
 data class Flags(
-    var ZF: Boolean = false, // Zero Flag
-    var SF: Boolean = false, // Sign Flag
-    var CF: Boolean = false, // Carry Flag
-    var OF: Boolean = false, // Overflow Flag
-    var AF: Boolean = false, // Auxiliary Carry Flag
-    var PF: Boolean = false  // Parity Flag
+    /** Zero Flag: Set if the result of an arithmetic operation is zero. */
+    var ZF: Boolean = false,
+
+    /** Sign Flag: Set if the most significant bit of the result is 1. */
+    var SF: Boolean = false,
+
+    /** Carry Flag: Set if an operation generates a carry/borrow out of the MSB. */
+    var CF: Boolean = false,
+
+    /** Overflow Flag: Set if the signed result is too large/small to fit. */
+    var OF: Boolean = false,
+
+    /** Auxiliary Carry Flag: Set if an operation generates a carry/borrow out of bit 3. */
+    var AF: Boolean = false,
+
+    /** Parity Flag: Set if the least significant byte of the result has an even number of 1 bits. */
+    var PF: Boolean = false
 )

@@ -7,8 +7,8 @@ class Parser(src: String, private val mem: Memory) {
     private val lex = Lexer(src)
     private var look: Token = lex.nextToken()
     private var currentSection = Section.CODE
-    private val dataSymbols = mutableMapOf<String, Int>()
-    private var dataPtr = 0x2000
+    private val dataSymbols = mutableMapOf<String, Int>() // symbol -> address
+    private var dataPtr = 0x1000 // Data segment starts at 4KB, leaving space for system/code
 
     private fun eat(kind: Token.Kind): Token {
         if (look.kind != kind) error("Parse error at line ${look.line}: expected $kind, got ${look.kind}")
@@ -104,11 +104,11 @@ class Parser(src: String, private val mem: Memory) {
     )
 
     fun parseProgram(): ParsedProgram {
-        val instrs = mutableListOf<Instruction>()
+        val instructions = mutableListOf<Instruction>()
         val labels = mutableMapOf<String, Int>()
         while (true) {
             when (look.kind) {
-                Token.Kind.EOF -> return ParsedProgram(instrs, labels)
+                Token.Kind.EOF -> return ParsedProgram(instructions, labels)
                 Token.Kind.NEWLINE -> { eat(Token.Kind.NEWLINE); continue }
                 Token.Kind.ID -> {
                     // Could be a label or an opcode
@@ -117,7 +117,7 @@ class Parser(src: String, private val mem: Memory) {
 
                     // Comments
                     if (tryEat(Token.Kind.COLON) != null) {
-                        labels[id] = instrs.size // points to the next instruction index
+                        labels[id] = instructions.size // points to the next instruction index
                         // consume any trailing tokens until the newline
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
@@ -129,7 +129,6 @@ class Parser(src: String, private val mem: Memory) {
                         when(id.lowercase()) {
                             ".data" -> currentSection = Section.DATA
                             ".code" -> currentSection = Section.CODE
-                            ".stack" -> currentSection = Section.STACK
                         }
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
@@ -149,7 +148,7 @@ class Parser(src: String, private val mem: Memory) {
                             while (!isNewlineOrEOF()) look = lex.nextToken()
                         }
                         tryEat(Token.Kind.NEWLINE)
-                        instrs.add(Instruction(op, dst, src, idTok.line))
+                        instructions.add(Instruction(op, dst, src, idTok.line))
                         continue
                     }
 

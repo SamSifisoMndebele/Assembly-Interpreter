@@ -1,5 +1,3 @@
-.stack 100h
-
 .data
 x DW 50
 y DW 7

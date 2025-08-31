@@ -10,6 +10,11 @@ import model.Reg
 class Interpreter(private val program: List<Instruction>, private val labels: Map<String, Int>, private val mem: Memory) {
     private val cpu = CPU()
 
+    init {
+        // Initialize Stack Pointer to the top of memory.
+        writeReg(Reg.SP, mem.size and 0xFFFF)
+    }
+
     private fun readReg(r: Reg) = cpu.regs[r]!! and 0xFFFF
     private fun writeReg(r: Reg, v: Int) { cpu.regs[r] = v and 0xFFFF }
 

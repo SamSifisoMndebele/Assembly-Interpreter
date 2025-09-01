@@ -14,25 +14,11 @@ sealed class Operand {
     data class RegOp(val reg: Reg): Operand()
 
     /**
-     * Represents an 8-bit immediate value operand.
-     *
-     * @property value The 8-bit integer value.
-     */
-    data class Imm8Op(val value: Byte): Operand()
-
-    /**
-     * Represents a 16-bit immediate value operand.
-     *
-     * @property value The 16-bit integer value.
-     */
-    data class Imm16Op(val value: Short): Operand()
-
-    /**
      * Represents a 32-bit immediate value operand.
      *
      * @property value The 32-bit integer value.
      */
-    data class Imm32Op(val value: Int): Operand()
+    data class ImmOp(val value: Int): Operand()
 
     /**
      * Represents a symbolic label operand. This is typically used for jumps and calls

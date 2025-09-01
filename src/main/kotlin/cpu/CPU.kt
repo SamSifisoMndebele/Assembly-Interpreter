@@ -33,10 +33,6 @@ import model.Reg
  */
 data class CPU(
     val regs: MutableMap<Reg, Long> = mutableMapOf(
-        // 16-bit registers
-        Reg.AX to 0, Reg.BX to 0, Reg.CX to 0, Reg.DX to 0,
-        Reg.SI to 0, Reg.DI to 0, Reg.BP to 0, Reg.SP to 0,
-        // 32-bit registers
         Reg.EAX to 0, Reg.EBX to 0, Reg.ECX to 0, Reg.EDX to 0,
         Reg.ESI to 0, Reg.EDI to 0, Reg.EBP to 0, Reg.ESP to 0
     ),
@@ -53,14 +49,22 @@ data class CPU(
      */
     fun readReg(reg: Reg): Long {
         return when (reg) {
-            Reg.AL -> regs[Reg.AX]!! and(0xFFL)
-            Reg.AH -> (regs[Reg.AX]!! shr (8) and(0xFFL))
-            Reg.BL -> (regs[Reg.BX]!! and (0xFFL))
-            Reg.BH -> (regs[Reg.BX]!! shr (8) and(0xFFL))
-            Reg.CL -> (regs[Reg.CX]!! and (0xFFL))
-            Reg.CH -> (regs[Reg.CX]!! shr (8) and(0xFFL))
-            Reg.DL -> (regs[Reg.DX]!! and (0xFFL))
-            Reg.DH -> (regs[Reg.DX]!! shr (8) and(0xFFL))
+            Reg.AL -> regs[Reg.EAX]!! and(0xFFL)
+            Reg.AH -> (regs[Reg.EAX]!! shr (8) and(0xFFL))
+            Reg.AX -> regs[Reg.EAX]!! and(0xFFFFL)
+            Reg.BL -> (regs[Reg.EBX]!! and (0xFFL))
+            Reg.BH -> (regs[Reg.EBX]!! shr (8) and(0xFFL))
+            Reg.BX -> regs[Reg.EBX]!! and(0xFFFFL)
+            Reg.CL -> (regs[Reg.ECX]!! and (0xFFL))
+            Reg.CH -> (regs[Reg.ECX]!! shr (8) and(0xFFL))
+            Reg.CX -> regs[Reg.ECX]!! and(0xFFFFL)
+            Reg.DL -> (regs[Reg.EDX]!! and (0xFFL))
+            Reg.DH -> (regs[Reg.EDX]!! shr (8) and(0xFFL))
+            Reg.DX -> regs[Reg.EDX]!! and(0xFFFFL)
+            Reg.SI -> regs[Reg.ESI]!! and(0xFFFFL)
+            Reg.DI -> regs[Reg.EDI]!! and(0xFFFFL)
+            Reg.BP -> regs[Reg.EBP]!! and(0xFFFFL)
+            Reg.SP -> regs[Reg.ESP]!! and(0xFFFFL)
             else -> regs[reg] ?: throw NoSuchElementException("Register $reg not found")
         }
     }
@@ -74,16 +78,60 @@ data class CPU(
      */
     fun writeReg(reg: Reg, value: Long) {
         when (reg) {
-            Reg.AL -> regs[Reg.AX] = (regs[Reg.AX]!! and(0xFF00L)) or(value.and(0xFFL))
-            Reg.AH -> regs[Reg.AX] = (regs[Reg.AX]!! and(0x00FFL)) or(value.and(0xFFL) shl(8)) 
-            Reg.BL -> regs[Reg.BX] = (regs[Reg.BX]!! and(0xFF00L)) or(value.and(0xFFL))
-            Reg.BH -> regs[Reg.BX] = (regs[Reg.BX]!! and(0x00FFL)) or(value.and(0xFFL) shl(8))
-            Reg.CL -> regs[Reg.CX] = (regs[Reg.CX]!! and(0xFF00L)) or(value.and(0xFFL))
-            Reg.CH -> regs[Reg.CX] = (regs[Reg.CX]!! and(0x00FFL)) or(value.and(0xFFL) shl(8))
-            Reg.DL -> regs[Reg.DX] = (regs[Reg.DX]!! and(0xFF00L)) or(value.and(0xFFL))
-            Reg.DH -> regs[Reg.DX] = (regs[Reg.DX]!! and(0x00FFL)) or(value.and(0xFFL) shl(8))
+            Reg.AL -> regs[Reg.EAX] = (regs[Reg.EAX]!! and(0xFFFFFF00L)) or(value.and(0xFFL))
+            Reg.AH -> regs[Reg.EAX] = (regs[Reg.EAX]!! and(0xFFFF00FFL)) or(value.and(0xFFL) shl(8))
+            Reg.AX -> regs[Reg.EAX] = (regs[Reg.EAX]!! and(0xFFFF0000L)) or(value.and(0xFFFFL))
+            Reg.BL -> regs[Reg.EBX] = (regs[Reg.EBX]!! and(0xFFFFFF00L)) or(value.and(0xFFL))
+            Reg.BH -> regs[Reg.EBX] = (regs[Reg.EBX]!! and(0xFFFF00FFL)) or(value.and(0xFFL) shl(8))
+            Reg.BX -> regs[Reg.EBX] = (regs[Reg.EBX]!! and(0xFFFF0000L)) or(value.and(0xFFFFL))
+            Reg.CL -> regs[Reg.ECX] = (regs[Reg.ECX]!! and(0xFFFFFF00L)) or(value.and(0xFFL))
+            Reg.CH -> regs[Reg.ECX] = (regs[Reg.ECX]!! and(0xFFFF00FFL)) or(value.and(0xFFL) shl(8))
+            Reg.CX -> regs[Reg.ECX] = (regs[Reg.ECX]!! and(0xFFFF0000L)) or(value.and(0xFFFFL))
+            Reg.DL -> regs[Reg.EDX] = (regs[Reg.EDX]!! and(0xFFFFFF00L)) or(value.and(0xFFL))
+            Reg.DH -> regs[Reg.EDX] = (regs[Reg.EDX]!! and(0xFFFF00FFL)) or(value.and(0xFFL) shl(8))
+            Reg.DX -> regs[Reg.EDX] = (regs[Reg.EDX]!! and(0xFFFF0000L)) or(value.and(0xFFFFL))
+            Reg.SI -> regs[Reg.ESI] = (regs[Reg.ESI]!! and(0xFFFF0000L)) or(value.and(0xFFFFL))
+            Reg.DI -> regs[Reg.EDI] = (regs[Reg.EDI]!! and(0xFFFF0000L)) or(value.and(0xFFFFL))
+            Reg.BP -> regs[Reg.EBP] = (regs[Reg.EBP]!! and(0xFFFF0000L)) or(value.and(0xFFFFL))
+            Reg.SP -> regs[Reg.ESP] = (regs[Reg.ESP]!! and(0xFFFF0000L)) or(value.and(0xFFFFL))
             else -> if (regs.containsKey(reg)) regs[reg] = value else throw NoSuchElementException("Register $reg not found")
         }
     }
+
+    /**
+     * Generates a string representation of the current state of the CPU registers and flags.
+     *
+     * This function formats the values of all major general-purpose registers (EAX, EBX, ECX, EDX, ESI, EDI, EBP, ESP),
+     * their 16-bit counterparts (AX, BX, CX, DX, SI, DI, BP, SP), and for the first four, their 8-bit
+     * high (AH, BH, CH, DH) and low (AL, BL, CL, DL) components. It also includes the current value
+     * of the Instruction Pointer (IP) and the status of the CPU flags (CF, PF, AF, ZF, SF, OF).
+     *
+     * Register values are displayed in hexadecimal format.
+     * Flag values are displayed as 0 (false) or 1 (true).
+     *
+     * @return A [String] containing a formatted multi-line representation of the CPU's register and flag states.
+     *         Each line details a specific register or the set of flags.
+     *         Example format for a register:
+     *         `  EAX: 0x00000000 (AX: 0x0000, AH: 0x00, AL: 0x00)`
+     *         Example format for flags:
+     *         `Flags: CF=0 PF=0 AF=0 ZF=0 SF=0 OF=0`
+     */
+    fun printRegisters(): String {
+        val sb = StringBuilder()
+        sb.appendLine("Registers:")
+        sb.appendLine("  EAX: 0x%08X (AX: 0x%04X, AH: 0x%02X, AL: 0x%02X)".format(readReg(Reg.EAX), readReg(Reg.AX), readReg(Reg.AH), readReg(Reg.AL)))
+        sb.appendLine("  EBX: 0x%08X (BX: 0x%04X, BH: 0x%02X, BL: 0x%02X)".format(readReg(Reg.EBX), readReg(Reg.BX), readReg(Reg.BH), readReg(Reg.BL)))
+        sb.appendLine("  ECX: 0x%08X (CX: 0x%04X, CH: 0x%02X, CL: 0x%02X)".format(readReg(Reg.ECX), readReg(Reg.CX), readReg(Reg.CH), readReg(Reg.CL)))
+        sb.appendLine("  EDX: 0x%08X (DX: 0x%04X, DH: 0x%02X, DL: 0x%02X)".format(readReg(Reg.EDX), readReg(Reg.DX), readReg(Reg.DH), readReg(Reg.DL)))
+        sb.appendLine("  ESI: 0x%08X (SI: 0x%04X)".format(readReg(Reg.ESI), readReg(Reg.SI)))
+        sb.appendLine("  EDI: 0x%08X (DI: 0x%04X)".format(readReg(Reg.EDI), readReg(Reg.DI)))
+        sb.appendLine("  EBP: 0x%08X (BP: 0x%04X)".format(readReg(Reg.EBP), readReg(Reg.BP)))
+        sb.appendLine("  ESP: 0x%08X (SP: 0x%04X)".format(readReg(Reg.ESP), readReg(Reg.SP)))
+        sb.appendLine("  IP:  0x%08X".format(IP))
+        sb.appendLine("Flags: CF=${flags.CF.toInt()} PF=${flags.PF.toInt()} AF=${flags.AF.toInt()} ZF=${flags.ZF.toInt()} SF=${flags.SF.toInt()} OF=${flags.OF.toInt()}")
+        return sb.toString()
+    }
+
+    private fun Boolean.toInt() = if (this) 1 else 0
 }
 

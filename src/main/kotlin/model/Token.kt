@@ -32,11 +32,6 @@ data class Token(val kind: Kind, val text: String, val line: Int) {
         /** Newline character */
         NEWLINE,
         /** End-of-file marker, indicating no more tokens */
-        EOF,
-        /** Keyword for 8-bit data type */
-        KW_BYTE,
-        /** Keyword for 16-bit data type */
-        KW_SHORT,
-        /** Keyword for 32-bit data type */
-        KW_INT }
+        EOF
+    }
 }

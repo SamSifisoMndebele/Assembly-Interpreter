@@ -75,4 +75,6 @@ class Memory(memSize: Int = 256) {
         write8(addr + 2, (value ushr 16) and 0xFFL)
         write8(addr + 3, (value ushr 24) and 0xFFL)
     }
+
+
 }

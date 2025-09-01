@@ -3,7 +3,8 @@ package model
 /**
  * Represents the registers available in an x86-like architecture.
  *
- * This enum class categorizes registers by their size: 8-bit, 16-bit, and 32-bit.
+ * This enum class categorizes registers by their size: 8-bit, 16-bit, and 32-bit,
+ * and includes segment registers.
  */
 enum class Reg {
     /** Accumulator Low byte (8-bit) */
@@ -55,5 +56,14 @@ enum class Reg {
     /** Extended Base Pointer register (32-bit) */
     EBP,
     /** Extended Stack Pointer register (32-bit) */
-    ESP
+    ESP,
+
+    /** Code Segment register (16-bit) */
+    CS,
+    /** Data Segment register (16-bit) */
+    DS,
+    /** Stack Segment register (16-bit) */
+    SS,
+    /** Extra Segment register (16-bit) */
+    ES
 }

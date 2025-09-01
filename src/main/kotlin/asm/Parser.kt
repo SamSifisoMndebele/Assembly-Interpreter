@@ -31,6 +31,23 @@ class Parser(src: String, private val mem: Memory) {
     private val dataSymbols = mutableMapOf<String, Int>() // symbol -> address
     private var dataPtr = 0x1000 // Data segment starts at 4KB, leaving space for system/code.
 
+    companion object {
+        private val opStringToEnumMap: Map<String, Op> = mapOf(
+            "MOV" to Op.MOV, "ADD" to Op.ADD, "SUB" to Op.SUB, "INC" to Op.INC, "DEC" to Op.DEC,
+            "CMP" to Op.CMP, "JMP" to Op.JMP, "JE" to Op.JE, "JNE" to Op.JNE, "JG" to Op.JG,
+            "JL" to Op.JL, "JGE" to Op.JGE, "JLE" to Op.JLE, "PUSH" to Op.PUSH, "POP" to Op.POP,
+            "CALL" to Op.CALL, "RET" to Op.RET, "INT" to Op.INT, "NOP" to Op.NOP,
+            "XCHG" to Op.XCHG, "LEA" to Op.LEA, "MUL" to Op.MUL, "IMUL" to Op.IMUL,
+            "DIV" to Op.DIV, "IDIV" to Op.IDIV, "NEG" to Op.NEG, "AND" to Op.AND,
+            "OR" to Op.OR, "XOR" to Op.XOR, "NOT" to Op.NOT, "TEST" to Op.TEST,
+            "SHL" to Op.SHL, "SAL" to Op.SAL,
+            "SHR" to Op.SHR, "SAR" to Op.SAR,
+            "ROL" to Op.ROL, "ROR" to Op.ROR, "RCL" to Op.RCL, "RCR" to Op.RCR,
+            "MOVS" to Op.MOVS, "CMPS" to Op.CMPS, "SCAS" to Op.SCAS, "LODS" to Op.LODS,
+            "STOS" to Op.STOS
+        )
+    }
+
     /**
      * Consumes the current token if its kind matches the expected kind.
      *
@@ -77,7 +94,23 @@ class Parser(src: String, private val mem: Memory) {
         } // Masking is handled by memory write operations based on data type (DB, DW, DD)
     }
 
+    /**
+     * Parses a register name string (case-insensitive) into a [Reg] enum.
+     *
+     * @param id The string representation of the register (e.g., "AX", "al", "EBP").
+     * @return The corresponding [Reg] enum if the string is a valid register name, or `null` otherwise.
+     */
     private fun parseReg(id: String): Reg? = when(id.uppercase()) {
+        // 8-bit registers
+        "AL" -> Reg.AL
+        "AH" -> Reg.AH
+        "BL" -> Reg.BL
+        "BH" -> Reg.BH
+        "CL" -> Reg.CL
+        "CH" -> Reg.CH
+        "DL" -> Reg.DL
+        "DH" -> Reg.DH
+        // 16-bit registers
         "AX"-> Reg.AX
         "BX"-> Reg.BX
         "CX"-> Reg.CX
@@ -86,6 +119,15 @@ class Parser(src: String, private val mem: Memory) {
         "DI"-> Reg.DI
         "BP"-> Reg.BP
         "SP"-> Reg.SP
+        // 32-bit registers
+        "EAX" -> Reg.EAX
+        "EBX" -> Reg.EBX
+        "ECX" -> Reg.ECX
+        "EDX" -> Reg.EDX
+        "ESI" -> Reg.ESI
+        "EDI" -> Reg.EDI
+        "EBP" -> Reg.EBP
+        "ESP" -> Reg.ESP
         else -> null
     }
 
@@ -101,7 +143,8 @@ class Parser(src: String, private val mem: Memory) {
                 val reg = parseReg(idTok.text)
                 if (reg != null) return Operand.RegOp(reg)
                 val symAddr = dataSymbols[idTok.text]
-                if (symAddr != null) return Operand.MemOp(null, symAddr) // `mov ax, var` -> `mov ax, [address_of_var]`
+                // `mov ax, var` -> `mov ax, [address_of_var]`
+                if (symAddr != null) return Operand.MemOp(null, symAddr)
                 // If it's not a register or a known data symbol, assume it's a code label.
                 return Operand.LabelOp(idTok.text)
             }
@@ -136,27 +179,22 @@ class Parser(src: String, private val mem: Memory) {
      * @param id The string representation of the opcode.
      * @return The corresponding [Op].
      */
-    private fun parseOp(id: String): Op = when(id.uppercase()) {
-        "MOV"-> Op.MOV
-        "ADD"-> Op.ADD
-        "SUB"-> Op.SUB
-        "INC"-> Op.INC
-        "DEC"-> Op.DEC
-        "CMP"-> Op.CMP
-        "JMP"-> Op.JMP
-        "JE"-> Op.JE
-        "JNE"-> Op.JNE
-        "JG"-> Op.JG
-        "JL"-> Op.JL
-        "JGE"-> Op.JGE
-        "JLE"-> Op.JLE
-        "PUSH"-> Op.PUSH
-        "POP"-> Op.POP
-        "CALL"-> Op.CALL
-        "RET"-> Op.RET
-        "INT"-> Op.INT
-        "NOP"-> Op.NOP
-        else -> error("Line ${look.line}: unknown opcode $id")
+    private fun parseOp(id: String): Op {
+        val upperId = id.uppercase()
+
+        // Try direct match first
+        opStringToEnumMap[upperId]?.let { return it }
+
+        // If no direct match, check for suffixes B, W, D, L
+        // Ensure the mnemonic isn't too short to be a base + suffix
+        if (upperId.length >= 3) { // Smallest possible suffixed length (e.g., "ORB", "JGB")
+            val lastChar = upperId.last()
+            if (lastChar == 'B' || lastChar == 'W' || lastChar == 'D' || lastChar == 'L') {
+                val baseMnemonic = upperId.dropLast(1)
+                opStringToEnumMap[baseMnemonic]?.let { return it }
+            }
+        }
+        error("Line ${look.line}: unknown opcode '$id' (parsed as '$upperId')")
     }
 
     /**
@@ -231,23 +269,23 @@ class Parser(src: String, private val mem: Memory) {
                         dataSymbols[id] = dataPtr
 
                         when (typeTok.text.uppercase()) {
-                            "DB" -> { // Define Byte (8-bit)
-                                if (value < -128 || value > 255) error("Line ${typeTok.line}: Value out of 8-bit range for DB: $value")
+                            "DB", "BYTE" -> { // Define Byte (8-bit)
+                                if (value < -128 || value > 255) error("Line ${typeTok.line}: Value out of 8-bit range for DB/BYTE: $value")
                                 mem.write8(dataPtr.toLong(), value.toLong())
                                 dataPtr += 1
                             }
-                            "DW" -> { // Define Word (16-bit)
-                                if (value < -32768 || value > 65535) error("Line ${typeTok.line}: Value out of 16-bit range for DW: $value")
+                            "DW", "WORD" -> { // Define Word (16-bit)
+                                if (value < -32768 || value > 65535) error("Line ${typeTok.line}: Value out of 16-bit range for DW/WORD: $value")
                                 mem.write16(dataPtr.toLong(), value.toLong())
                                 dataPtr += 2
                             }
-                            "DD" -> { // Define Double Word (32-bit)
+                            "DD", "DWORD", "LONG" -> { // Define Double Word (32-bit)
                                 // No practical upper limit for Int in Kotlin for positive, but consider signed range
                                 // mem.write32 will handle the conversion to bytes
                                 mem.write32(dataPtr.toLong(), value.toLong())
                                 dataPtr += 4
                             }
-                            else -> error("Line ${typeTok.line}: Unsupported data directive '${typeTok.text}'. Supported: DB, DW, DD")
+                            else -> error("Line ${typeTok.line}: Unsupported data directive '${typeTok.text}'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")
                         }
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)

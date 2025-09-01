@@ -28,8 +28,8 @@ class Parser(src: String, private val mem: Memory) {
     private val lex = Lexer(src)
     private var look: Token = lex.nextToken()
     private var currentSection = Section.CODE
-    private val dataSymbols = mutableMapOf<String, Int>() // symbol -> offset within data segment
-    private var currentDataOffset = 0 // Current offset within the data segment
+    private val dataSymbols = mutableMapOf<String, Long>() // symbol -> offset within data segment
+    private var currentDataOffset = 0L // Current offset within the data segment
     
     companion object {
         private const val DATA_SEGMENT_BASE = 0x1000 // Data segment starts at 4KB
@@ -88,23 +88,23 @@ class Parser(src: String, private val mem: Memory) {
      * @param text The string representation of the number.
      * @return The parsed integer value.
      */
-    private fun parseImmediate(text: String): Int {
+    private fun parseImmediate(text: String): Long {
         val t = text.lowercase().replace("_", "") // Allow underscores for readability
         return when {
             // Hexadecimal
-            t.startsWith("0x") -> t.substring(2).toInt(16)
-            t.endsWith("h") -> t.dropLast(1).toInt(16)
+            t.startsWith("0x") -> t.substring(2).toLong(16)
+            t.endsWith("h") -> t.dropLast(1).toLong(16)
             // Binary
-            t.startsWith("0b") -> t.substring(2).toInt(2)
-            t.endsWith("b") -> t.dropLast(1).toInt(2)
+            t.startsWith("0b") -> t.substring(2).toLong(2)
+            t.endsWith("b") -> t.dropLast(1).toLong(2)
             // Octal
-            t.startsWith("0o") -> t.substring(2).toInt(8)
-            t.endsWith("o") || t.endsWith("q") -> t.dropLast(1).toInt(8)
+            t.startsWith("0o") -> t.substring(2).toLong(8)
+            t.endsWith("o") || t.endsWith("q") -> t.dropLast(1).toLong(8)
             // Decimal (default)
-            t.all { it.isDigit() || (it == '-' && t.indexOf('-') == 0) } -> t.toInt()
+            t.all { it.isDigit() || (it == '-' && t.indexOf('-') == 0) } -> t.toLong()
             // Handle character literals like 'A'
-            t.length == 3 && t.startsWith("'") && t.endsWith("'") -> t[1].code
-            else -> t.toInt()
+            t.length == 3 && t.startsWith("'") && t.endsWith("'") -> t[1].code.toLong()
+            else -> t.toLong()
         }
     }
 
@@ -174,7 +174,7 @@ class Parser(src: String, private val mem: Memory) {
             Token.Kind.LBRACK -> {
                 eat(Token.Kind.LBRACK)
                 var base: Reg? = null
-                var disp: Int? = null
+                var disp: Long? = null
                 when (look.kind) {
                     Token.Kind.ID -> {
                         val idTok = eat(Token.Kind.ID)
@@ -192,7 +192,7 @@ class Parser(src: String, private val mem: Memory) {
                             disp = symbolOffset
                             if (tryEat(Token.Kind.PLUS) != null) {
                                 val immediateOffset = parseImmediate(eat(Token.Kind.NUMBER).text)
-                                disp = (disp ?: 0) + immediateOffset
+                                disp = disp + immediateOffset
                             }
                         }
                     }

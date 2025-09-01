@@ -67,7 +67,7 @@ class Interpreter(
         is Operand.MemOp -> when (size) {
             8 -> mem.readByte(addrOf(op)).toLong()
             16 -> mem.readWord(addrOf(op)).toLong()
-            32 -> mem.readDWord(addrOf(op)).toLong()
+            32 -> mem.readDWord(addrOf(op))
             else -> error("Line $line: Unsupported size $size for memory read")
         }
         is Operand.LabelOp -> labels[op.name]?.let { it and 0xFFFFFFFFL } ?: error("Line $line: Unknown label: ${op.name}")
@@ -89,9 +89,9 @@ class Interpreter(
             is Operand.MemOp -> {
                 val addr = addrOf(op)
                 when (size) {
-                    8 -> mem.writeByte(addr, value.toByte())
-                    16 -> mem.writeWord(addr, value.toShort())
-                    32 -> mem.writeDWord(addr, value.toInt())
+                    8 -> mem.writeByte(addr, value.toShort())
+                    16 -> mem.writeWord(addr, value.toInt())
+                    32 -> mem.writeDWord(addr, value)
                     else -> error("Line $line: Unsupported size $size for memory write")
                 }
             }
@@ -200,7 +200,7 @@ class Interpreter(
 
         val ssBase = cpu.readReg(Reg.SS) // SS holds segment base
         val physicalStackAddress = (ssBase + newSpOffset) and 0xFFFFFFFFL
-        mem.writeDWord(physicalStackAddress, v.toInt()) // Write Double Word (32-bit)
+        mem.writeDWord(physicalStackAddress, v) // Write Double Word (32-bit)
     }
 
     /**
@@ -217,7 +217,7 @@ class Interpreter(
         val v = mem.readDWord(physicalStackAddress) // Read Double Word (32-bit)
         val newSpOffset = (currentSpOffset + 4) and 0xFFFFFFFFL // SP is 32-bit offset
         cpu.writeReg(Reg.ESP, newSpOffset)
-        return v.toLong()
+        return v
     }
 
     /**

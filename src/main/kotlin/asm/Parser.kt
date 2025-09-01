@@ -79,19 +79,34 @@ class Parser(src: String, private val mem: Memory) {
 
     /**
      * Parses a string representation of a number into an integer.
-     * Supports decimal, hexadecimal (0x prefix or h suffix).
-     * The result is masked to ensure it fits within the target bit width.
+     * Supports decimal, hexadecimal (0x prefix or h suffix),
+     * binary (0b prefix or b suffix), and octal (0o prefix or o/q suffix).
      *
+     * @throws NumberFormatException if the string is not a valid representation of a number in any supported base.
      * @param text The string representation of the number.
      * @return The parsed integer value.
      */
-    private fun parseNumber(text: String): Int {
-        val t = text.lowercase()
+    private fun parseImmediate(text: String): Int {
+        val t = text.lowercase().replace("_", "") // Allow underscores for readability
         return when {
+            // Hexadecimal
             t.startsWith("0x") -> t.substring(2).toInt(16)
             t.endsWith("h") -> t.dropLast(1).toInt(16)
+            // Binary
+            t.startsWith("0b") -> t.substring(2).toInt(2)
+            t.endsWith("b") -> t.dropLast(1).toInt(2)
+            // Octal
+            t.startsWith("0o") -> t.substring(2).toInt(8)
+            t.endsWith("o") || t.endsWith("q") -> t.dropLast(1).toInt(8)
+            // Decimal (default)
+            t.all { it.isDigit() || (it == '-' && t.indexOf('-') == 0) } -> t.toInt()
+            // Handle character literals like 'A'
+            t.length == 3 && t.startsWith("'") && t.endsWith("'") -> t[1].code
+            // Handle quoted strings for DB, e.g., "Hello"
+            // This is handled later by data directive parsing, but included for completeness in number parsing logic if needed elsewhere.
+            // For now, if it's not any of the above, assume decimal or error out.
             else -> t.toInt()
-        } // Masking is handled by memory write operations based on data type (DB, DW, DD)
+        }
     }
 
     /**
@@ -148,7 +163,7 @@ class Parser(src: String, private val mem: Memory) {
                 // If it's not a register or a known data symbol, assume it's a code label.
                 return Operand.LabelOp(idTok.text)
             }
-            Token.Kind.NUMBER -> Operand.Imm32Op(parseNumber(eat(Token.Kind.NUMBER).text))
+            Token.Kind.NUMBER -> Operand.ImmOp(parseImmediate(eat(Token.Kind.NUMBER).text))
             Token.Kind.LBRACK -> {
                 eat(Token.Kind.LBRACK)
                 var base: Reg? = null
@@ -161,9 +176,9 @@ class Parser(src: String, private val mem: Memory) {
                             val addr = dataSymbols[idTok.text] ?: error("Unknown symbol ${idTok.text}")
                             disp = addr
                         }
-                        if (tryEat(Token.Kind.PLUS) != null) disp = parseNumber(eat(Token.Kind.NUMBER).text)
+                        if (tryEat(Token.Kind.PLUS) != null) disp = parseImmediate(eat(Token.Kind.NUMBER).text)
                     }
-                    Token.Kind.NUMBER -> { disp = parseNumber(eat(Token.Kind.NUMBER).text) }
+                    Token.Kind.NUMBER -> { disp = parseImmediate(eat(Token.Kind.NUMBER).text) }
                     else -> error("Line ${look.line}: bad memory operand")
                 }
                 eat(Token.Kind.RBRACK)
@@ -265,7 +280,7 @@ class Parser(src: String, private val mem: Memory) {
                     if (currentSection == Section.DATA) {
                         val typeTok = eat(Token.Kind.ID)
                         val valTok = if (look.kind == Token.Kind.NUMBER) eat(Token.Kind.NUMBER) else null
-                        val value = if (valTok != null) parseNumber(valTok.text) else 0
+                        val value = if (valTok != null) parseImmediate(valTok.text) else 0
                         dataSymbols[id] = dataPtr
 
                         when (typeTok.text.uppercase()) {

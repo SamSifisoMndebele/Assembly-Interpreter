@@ -1,7 +1,7 @@
 .data
-x DW 50
-y DW 7
-sum DW ?
+x DWORD 30Ah
+y DWORD 7
+sum DWORD ?
 
 .code
     mov ax, x

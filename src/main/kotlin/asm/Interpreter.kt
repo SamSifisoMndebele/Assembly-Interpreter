@@ -24,7 +24,7 @@ class Interpreter(
     init {
         // Initialize Stack Pointer to the top of memory. SS is 0, so SP is effectively the physical address.
         // mem.size is Int, cpu.regs values are Long.
-        cpu.writeReg(Reg.SP, mem.size) // SP will be an offset; if SS is 0, it's also the physical top.
+        cpu.writeReg(Reg.ESP, mem.size) // SP will be an offset; if SS is 0, it's also the physical top.
     }
 
     /**
@@ -38,7 +38,7 @@ class Interpreter(
         val offsetPart = (memOp.base?.let { cpu.readReg(it) } ?: 0) + (memOp.disp ?: 0)
 
         // Determine segment register: BP-based addressing uses SS, otherwise DS.
-        val segmentReg = if (memOp.base == Reg.BP) Reg.SS else Reg.DS
+        val segmentReg = if (memOp.base == Reg.EBP) Reg.SS else Reg.DS
         val segmentBase = cpu.readReg(segmentReg)
 
         // Physical address: (SegmentBase + Offset) & 0xFFFFFFFF (assuming 32-bit address space)
@@ -65,12 +65,12 @@ class Interpreter(
         }
         is Operand.RegOp -> cpu.readReg(op.reg) // CPU handles size for register reads
         is Operand.MemOp -> when (size) {
-            8 -> mem.readByte(addrOf(op))
-            16 -> mem.readWord(addrOf(op))
-            32 -> mem.readDWord(addrOf(op))
+            8 -> mem.readByte(addrOf(op)).toLong()
+            16 -> mem.readWord(addrOf(op)).toLong()
+            32 -> mem.readDWord(addrOf(op)).toLong()
             else -> error("Line $line: Unsupported size $size for memory read")
         }
-        is Operand.LabelOp -> labels[op.name]?.let { it.toLong() and 0xFFFFFFFFL } ?: error("Line $line: Unknown label: ${op.name}")
+        is Operand.LabelOp -> labels[op.name]?.let { it and 0xFFFFFFFFL } ?: error("Line $line: Unknown label: ${op.name}")
         else -> error("Line $line: Unimplemented operand type ${op.javaClass.simpleName}")
     }
 
@@ -89,9 +89,9 @@ class Interpreter(
             is Operand.MemOp -> {
                 val addr = addrOf(op)
                 when (size) {
-                    8 -> mem.writeByte(addr, value)
-                    16 -> mem.writeWord(addr, value)
-                    32 -> mem.writeDWord(addr, value)
+                    8 -> mem.writeByte(addr, value.toByte())
+                    16 -> mem.writeWord(addr, value.toShort())
+                    32 -> mem.writeDWord(addr, value.toInt())
                     else -> error("Line $line: Unsupported size $size for memory write")
                 }
             }
@@ -194,13 +194,13 @@ class Interpreter(
      * @param v The 32-bit value to push.
      */
     private fun push(v: Long) { // Pushes a 32-bit value
-        val currentSpOffset = cpu.readReg(Reg.SP)
+        val currentSpOffset = cpu.readReg(Reg.ESP)
         val newSpOffset = (currentSpOffset - 4) and 0xFFFFFFFFL // SP is 32-bit offset
-        cpu.writeReg(Reg.SP, newSpOffset)
+        cpu.writeReg(Reg.ESP, newSpOffset)
 
         val ssBase = cpu.readReg(Reg.SS) // SS holds segment base
         val physicalStackAddress = (ssBase + newSpOffset) and 0xFFFFFFFFL
-        mem.writeDWord(physicalStackAddress, v) // Write Double Word (32-bit)
+        mem.writeDWord(physicalStackAddress, v.toInt()) // Write Double Word (32-bit)
     }
 
     /**
@@ -210,14 +210,14 @@ class Interpreter(
      * @return The 32-bit value popped from the stack.
      */
     private fun pop(): Long { // Pops a 32-bit value
-        val currentSpOffset = cpu.readReg(Reg.SP)
+        val currentSpOffset = cpu.readReg(Reg.ESP)
         val ssBase = cpu.readReg(Reg.SS) // SS holds segment base
         val physicalStackAddress = (ssBase + currentSpOffset) and 0xFFFFFFFFL
 
         val v = mem.readDWord(physicalStackAddress) // Read Double Word (32-bit)
         val newSpOffset = (currentSpOffset + 4) and 0xFFFFFFFFL // SP is 32-bit offset
-        cpu.writeReg(Reg.SP, newSpOffset)
-        return v
+        cpu.writeReg(Reg.ESP, newSpOffset)
+        return v.toLong()
     }
 
     /**
@@ -243,7 +243,7 @@ class Interpreter(
                     val dst = ins.dst ?: error("ADD missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val b = readOp(ins.src ?: error("ADD missing src at line ${ins.line}"), ins.line)
-                    val r = (a + b) 
+                    val r = (a + b)
                     setFlagsFromAdd(a, b, r and 0xFFFFFFFFL)
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.IP++
@@ -252,7 +252,7 @@ class Interpreter(
                     val dst = ins.dst ?: error("SUB missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val b = readOp(ins.src ?: error("SUB missing src at line ${ins.line}"), ins.line)
-                    val r = (a - b) 
+                    val r = (a - b)
                     setFlagsFromSub(a, b, r and 0xFFFFFFFFL)
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.IP++
@@ -261,7 +261,7 @@ class Interpreter(
                     val dst = ins.dst ?: error("INC missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val r = (a + 1)
-                    setFlagsFromAdd(a, 1, r and 0xFFFFFFFFL) 
+                    setFlagsFromAdd(a, 1, r and 0xFFFFFFFFL)
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.IP++
                 }
@@ -269,7 +269,7 @@ class Interpreter(
                     val dst = ins.dst ?: error("DEC missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val r = (a - 1)
-                    setFlagsFromSub(a, 1, r and 0xFFFFFFFFL) 
+                    setFlagsFromSub(a, 1, r and 0xFFFFFFFFL)
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.IP++
                 }
@@ -316,9 +316,9 @@ class Interpreter(
                 }
                 Op.INT -> {
                     val imm = readOp(ins.dst ?: error("INT requires an immediate at line ${ins.line}"), ins.line)
-                    if ((imm and 0xFFL) == 0x20L) { 
+                    if ((imm and 0xFFL) == 0x20L) {
                         println("Program terminated via INT 20h (IP=${cpu.IP})")
-                        return 
+                        return
                     } else {
                         error("Unsupported interrupt 0x${(imm and 0xFFFFFFFFL).toString(16)} at line ${ins.line}")
                     }
@@ -331,8 +331,8 @@ class Interpreter(
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.flags.ZF = (r and 0xFFFFFFFFL) == 0L
                     cpu.flags.SF = (r and 0x80000000L) != 0L
-                    cpu.flags.CF = false 
-                    cpu.flags.OF = false 
+                    cpu.flags.CF = false
+                    cpu.flags.OF = false
                     // PF and AF might need adjustment for AND/OR/XOR if specific behavior is desired,
                     // often they are undefined or set to specific values. For now, mirroring ADD/SUB's PF.
                     var tempRes = r and 0xFFL
@@ -353,8 +353,8 @@ class Interpreter(
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.flags.ZF = (r and 0xFFFFFFFFL) == 0L
                     cpu.flags.SF = (r and 0x80000000L) != 0L
-                    cpu.flags.CF = false 
-                    cpu.flags.OF = false 
+                    cpu.flags.CF = false
+                    cpu.flags.OF = false
                     var tempRes = r and 0xFFL
                     var parity = 0
                     while (tempRes > 0) {
@@ -373,8 +373,8 @@ class Interpreter(
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.flags.ZF = (r and 0xFFFFFFFFL) == 0L
                     cpu.flags.SF = (r and 0x80000000L) != 0L
-                    cpu.flags.CF = false 
-                    cpu.flags.OF = false 
+                    cpu.flags.CF = false
+                    cpu.flags.OF = false
                     var tempRes = r and 0xFFL
                     var parity = 0
                     while (tempRes > 0) {
@@ -388,7 +388,7 @@ class Interpreter(
                 Op.NOT -> {
                     val dst = ins.dst ?: error("NOT missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
-                    val r = a.inv() 
+                    val r = a.inv()
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     // NOT does not affect flags
                     cpu.IP++
@@ -396,7 +396,7 @@ class Interpreter(
                 else -> error("Line ${ins.line}: Unimplemented opcode ${ins.op}")
             }
         }
-        if (!(cpu.IP >= 0 && cpu.IP < program.size)) {
+        if (cpu.IP < 0 || cpu.IP >= program.size) {
             println("Program halted. IP (${(cpu.IP and 0xFFFFFFFFL).toString(16)}) out of bounds (0-${(program.size-1).toString(16)}).")
         }
     }
@@ -405,7 +405,7 @@ class Interpreter(
      * Prints the current state of the CPU registers.
      */
     fun printRegisters() {
-        cpu.printRegisters()
+        println(cpu.printRegisters())
     }
 
     /**

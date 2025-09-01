@@ -37,7 +37,9 @@ class Parser(src: String, private val mem: Memory) {
         private val opStringToEnumMap: Map<String, Op> = mapOf(
             "MOV" to Op.MOV, "ADD" to Op.ADD, "SUB" to Op.SUB, "INC" to Op.INC, "DEC" to Op.DEC,
             "CMP" to Op.CMP, "JMP" to Op.JMP, "JE" to Op.JE, "JNE" to Op.JNE, "JG" to Op.JG,
-            "JL" to Op.JL, "JGE" to Op.JGE, "JLE" to Op.JLE, "PUSH" to Op.PUSH, "POP" to Op.POP,
+            "JL" to Op.JL, "JGE" to Op.JGE, "JLE" to Op.JLE,
+            "JA" to Op.JA, "JAE" to Op.JAE, "JB" to Op.JB, "JBE" to Op.JBE, // Added Unsigned Jumps
+            "PUSH" to Op.PUSH, "POP" to Op.POP,
             "CALL" to Op.CALL, "RET" to Op.RET, "INT" to Op.INT, "NOP" to Op.NOP,
             "XCHG" to Op.XCHG, "LEA" to Op.LEA, "MUL" to Op.MUL, "IMUL" to Op.IMUL,
             "DIV" to Op.DIV, "IDIV" to Op.IDIV, "NEG" to Op.NEG, "AND" to Op.AND,
@@ -58,7 +60,7 @@ class Parser(src: String, private val mem: Memory) {
      * @throws IllegalStateException if the current token's kind does not match the expected kind.
      */
     private fun eat(kind: Token.Kind): Token {
-        if (look.kind != kind) error("Parse error at line ${look.line}: expected $kind, got ${look.kind}")
+        if (look.kind != kind) error("Parse error at line ${'$'}{look.line}: expected ${'$'}kind, got ${'$'}{look.kind}")
         val t = look
         look = lex.nextToken()
         return t
@@ -188,7 +190,7 @@ class Parser(src: String, private val mem: Memory) {
                         } else {
                             // Assumed to be a data symbol e.g. [myVar] or [myVar+4]
                             val symbolOffset = dataSymbols[idTok.text] 
-                                ?: error("Line ${idTok.line}: Unknown symbol '${idTok.text}' in memory operand")
+                                ?: error("Line ${'$'}{idTok.line}: Unknown symbol '${'$'}{idTok.text}' in memory operand")
                             disp = symbolOffset
                             if (tryEat(Token.Kind.PLUS) != null) {
                                 val immediateOffset = parseImmediate(eat(Token.Kind.NUMBER).text)
@@ -200,12 +202,12 @@ class Parser(src: String, private val mem: Memory) {
                         disp = parseImmediate(eat(Token.Kind.NUMBER).text)
                         // Optional: Could support [4+bx] here if needed
                     }
-                    else -> error("Line ${look.line}: bad memory operand, expected ID or NUMBER inside brackets")
+                    else -> error("Line ${'$'}{look.line}: bad memory operand, expected ID or NUMBER inside brackets")
                 }
                 eat(Token.Kind.RBRACK)
                 Operand.MemOp(base, disp)
             }
-            else -> error("Line ${look.line}: unexpected token ${look.kind}")
+            else -> error("Line ${'$'}{look.line}: unexpected token ${'$'}{look.kind}")
         }
     }
 
@@ -227,7 +229,7 @@ class Parser(src: String, private val mem: Memory) {
                 opStringToEnumMap[baseMnemonic]?.let { return it }
             }
         }
-        error("Line ${look.line}: unknown opcode '$id' (parsed as '$upperId')")
+        error("Line ${'$'}{look.line}: unknown opcode '${'$'}id' (parsed as '${'$'}upperId')")
     }
 
     /**
@@ -238,7 +240,7 @@ class Parser(src: String, private val mem: Memory) {
      */
     data class ParsedProgram(
         val instructions: List<Instruction>,
-        val labels: MutableMap<String, Int> // label -> instruction index
+        val labels: MutableMap<String, Long> // label -> instruction index
     )
 
     /**
@@ -247,7 +249,7 @@ class Parser(src: String, private val mem: Memory) {
      */
     fun parseProgram(): ParsedProgram {
         val instructions = mutableListOf<Instruction>()
-        val labels = mutableMapOf<String, Int>() // label name -> instruction index for code labels
+        val labels = mutableMapOf<String, Long>() // label name -> instruction index for code labels
         
         while (true) {
             when (look.kind) {
@@ -259,7 +261,7 @@ class Parser(src: String, private val mem: Memory) {
 
                     if (tryEat(Token.Kind.COLON) != null) { // Label definition
                         if (currentSection == Section.CODE) {
-                            labels[id] = instructions.size // Code label points to the next instruction index
+                            labels[id] = instructions.size.toLong() // Code label points to the next instruction index
                         } else if (currentSection == Section.DATA) {
                             // Labels in .data section point to current data offset
                             dataSymbols[id] = currentDataOffset 
@@ -308,20 +310,20 @@ class Parser(src: String, private val mem: Memory) {
 
                         when (typeTok.text.uppercase()) {
                             "DB", "BYTE" -> {
-                                if (value < -128 || value > 255) error("Line ${typeTok.line}: Value out of 8-bit range for DB/BYTE: $value")
-                                mem.write8(physicalAddress, value.toLong())
+                                if (value < -128 || value > 255) error("Line ${'$'}{typeTok.line}: Value out of 8-bit range for DB/BYTE: ${'$'}value")
+                                mem.writeByte(physicalAddress, value.toLong())
                                 currentDataOffset += 1
                             }
                             "DW", "WORD" -> {
-                                if (value < -32768 || value > 65535) error("Line ${typeTok.line}: Value out of 16-bit range for DW/WORD: $value")
-                                mem.write16(physicalAddress, value.toLong())
+                                if (value < -32768 || value > 65535) error("Line ${'$'}{typeTok.line}: Value out of 16-bit range for DW/WORD: ${'$'}value")
+                                mem.writeWord(physicalAddress, value.toLong())
                                 currentDataOffset += 2
                             }
                             "DD", "DWORD", "LONG" -> {
-                                mem.write32(physicalAddress, value.toLong())
+                                mem.writeDWord(physicalAddress, value.toLong())
                                 currentDataOffset += 4
                             }
-                            else -> error("Line ${typeTok.line}: Unsupported data directive '${typeTok.text}'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")
+                            else -> error("Line ${'$'}{typeTok.line}: Unsupported data directive '${'$'}{typeTok.text}'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")
                         }
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)

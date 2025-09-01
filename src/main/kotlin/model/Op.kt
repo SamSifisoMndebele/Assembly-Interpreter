@@ -89,6 +89,14 @@ enum class Op {
     JGE,
     /** Jump if Less or Equal (ZF=1 or SF!=OF) */
     JLE,
+    /** Jump if Above (CF=0 and ZF=0) */
+    JA,
+    /** Jump if Below (CF=1) */
+    JB,
+    /** Jump if Above or Equal (CF=0) */
+    JAE,
+    /** Jump if Below or Equal (CF=1 or ZF=1) */
+    JBE,
 
     // Subroutine/Function Calls
     /** Call subroutine */

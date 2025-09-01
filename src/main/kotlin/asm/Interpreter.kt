@@ -7,6 +7,13 @@ import model.Op
 import model.Operand
 import model.Reg
 
+/**
+ * Interprets a list of assembly instructions.
+ *
+ * @property program The list of instructions to execute.
+ * @property labels A map of labels to their corresponding instruction indices.
+ * @property mem The memory model for the interpreter.
+ */
 class Interpreter(
     private val program: List<Instruction>,
     private val labels: Map<String, Long>,
@@ -17,9 +24,16 @@ class Interpreter(
     init {
         // Initialize Stack Pointer to the top of memory. SS is 0, so SP is effectively the physical address.
         // mem.size is Int, cpu.regs values are Long.
-        cpu.writeReg(Reg.SP, mem.size.toLong()) // SP will be an offset; if SS is 0, it's also the physical top.
+        cpu.writeReg(Reg.SP, mem.size) // SP will be an offset; if SS is 0, it's also the physical top.
     }
 
+    /**
+     * Calculates the physical memory address for a given memory operand.
+     * It considers the base register, displacement, and segment register.
+     *
+     * @param memOp The memory operand.
+     * @return The calculated physical memory address.
+     */
     private fun addrOf(memOp: Operand.MemOp): Long {
         val offsetPart = (memOp.base?.let { cpu.readReg(it) } ?: 0) + (memOp.disp ?: 0)
 
@@ -33,6 +47,15 @@ class Interpreter(
         return (segmentBase + offsetPart) and 0xFFFFFFFFL
     }
 
+    /**
+     * Reads the value of an operand.
+     *
+     * @param op The operand to read.
+     * @param line The current line number, for error reporting.
+     * @param size The size of the data to read in bits (8, 16, or 32). Defaults to 32.
+     * @return The value of the operand.
+     * @throws error if the operand type is unimplemented or size is unsupported.
+     */
     private fun readOp(op: Operand, line: Int, size: Int = 32): Long = when(op) {
         is Operand.ImmOp -> when (size) {
             8 -> op.value and 0xFFL
@@ -51,6 +74,15 @@ class Interpreter(
         else -> error("Line $line: Unimplemented operand type ${op.javaClass.simpleName}")
     }
 
+    /**
+     * Writes a value to an operand.
+     *
+     * @param op The operand to write to.
+     * @param value The value to write.
+     * @param line The current line number, for error reporting.
+     * @param size The size of the data to write in bits (8, 16, or 32). Defaults to 32.
+     * @throws error if writing to an immediate or label, or if the operand type is unimplemented or size is unsupported.
+     */
     private fun writeOp(op: Operand, value: Long, line: Int, size: Int = 32) {
         when(op) {
             is Operand.RegOp -> cpu.writeReg(op.reg, value) // CPU handles size for register writes
@@ -69,6 +101,13 @@ class Interpreter(
         }
     }
 
+    /**
+     * Sets the CPU flags based on the result of an addition operation.
+     *
+     * @param a The first operand of the addition.
+     * @param b The second operand of the addition.
+     * @param res The result of the addition.
+     */
     private fun setFlagsFromAdd(a: Long, b: Long, res: Long) {
         val mask = 0xFFFFFFFFL
         val signBit = 0x80000000L
@@ -96,6 +135,13 @@ class Interpreter(
         cpu.flags.PF = (parity % 2) == 0
     }
 
+    /**
+     * Sets the CPU flags based on the result of a subtraction operation.
+     *
+     * @param a The first operand (minuend).
+     * @param b The second operand (subtrahend).
+     * @param res The result of the subtraction.
+     */
     private fun setFlagsFromSub(a: Long, b: Long, res: Long) {
         val mask = 0xFFFFFFFFL
         val signBit = 0x80000000L
@@ -121,6 +167,12 @@ class Interpreter(
     }
 
 
+    /**
+     * Determines if a conditional jump (Jcc) should be taken based on CPU flags.
+     *
+     * @param op The jump operation code.
+     * @return True if the jump condition is met, false otherwise.
+     */
     private fun jccTaken(op: Op): Boolean = when(op) {
         Op.JE -> cpu.flags.ZF
         Op.JNE -> !cpu.flags.ZF
@@ -135,6 +187,12 @@ class Interpreter(
         else -> false
     }
 
+    /**
+     * Pushes a 32-bit value onto the stack.
+     * Decrements SP by 4 and writes the value to the new stack top.
+     *
+     * @param v The 32-bit value to push.
+     */
     private fun push(v: Long) { // Pushes a 32-bit value
         val currentSpOffset = cpu.readReg(Reg.SP)
         val newSpOffset = (currentSpOffset - 4) and 0xFFFFFFFFL // SP is 32-bit offset
@@ -145,6 +203,12 @@ class Interpreter(
         mem.writeDWord(physicalStackAddress, v) // Write Double Word (32-bit)
     }
 
+    /**
+     * Pops a 32-bit value from the stack.
+     * Reads the value from the current stack top and increments SP by 4.
+     *
+     * @return The 32-bit value popped from the stack.
+     */
     private fun pop(): Long { // Pops a 32-bit value
         val currentSpOffset = cpu.readReg(Reg.SP)
         val ssBase = cpu.readReg(Reg.SS) // SS holds segment base
@@ -156,6 +220,12 @@ class Interpreter(
         return v
     }
 
+    /**
+     * Runs the program, executing instructions sequentially.
+     *
+     * @param maxSteps The maximum number of instructions to execute, to prevent infinite loops.
+     * @throws error if an unimplemented opcode is encountered, or if execution limit is exceeded.
+     */
     fun run(maxSteps: Int = 100000) {
         var steps = 0
         while (cpu.IP >= 0 && cpu.IP < program.size) {
@@ -331,10 +401,17 @@ class Interpreter(
         }
     }
 
+    /**
+     * Prints the current state of the CPU registers.
+     */
     fun printRegisters() {
         cpu.printRegisters()
     }
 
+    /**
+     * Prints a section of the memory.
+     * Currently shows the first 256 bytes.
+     */
     fun printMemory() { 
         println("Memory (showing first 256 bytes):")
         for (i in 0 until 256 step 16) {

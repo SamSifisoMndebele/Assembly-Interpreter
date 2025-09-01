@@ -161,16 +161,24 @@ class Parser(src: String, private val mem: Memory) {
         return when (look.kind) {
             Token.Kind.ID -> {
                 val idTok = eat(Token.Kind.ID)
-                parseReg(idTok.text)?.let { return Operand.RegOp(it) }
-                dataSymbols[idTok.text]?.let { offset -> 
+                val tokenText = idTok.text
+                parseReg(tokenText)?.let { return Operand.RegOp(it) }
+                dataSymbols[tokenText]?.let { offset ->
                     // When a symbol is used as an operand like `mov ax, myVar`,
                     // it implies `mov ax, [offset_of_myVar_in_data_segment]`.
                     // The interpreter will need to add DATA_SEGMENT_BASE (or DS register value)
                     // to this offset.
-                    return Operand.MemOp(null, offset) 
+                    return Operand.MemOp(null, offset)
                 }
-                // If it's not a register or a known data symbol, assume it's a code label.
-                Operand.LabelOp(idTok.text)
+                // Attempt to parse as an immediate number if it's not a register or data symbol.
+                // This handles cases where a number might have been tokenized as an ID.
+                return try {
+                    val immediateValue = parseImmediate(tokenText)
+                    Operand.ImmOp(immediateValue)
+                } catch (e: NumberFormatException) {
+                    // If parsing as an immediate fails, then it's a code label.
+                    Operand.LabelOp(tokenText)
+                }
             }
             Token.Kind.NUMBER -> Operand.ImmOp(parseImmediate(eat(Token.Kind.NUMBER).text))
             Token.Kind.LBRACK -> {
@@ -311,16 +319,16 @@ class Parser(src: String, private val mem: Memory) {
                         when (typeTok.text.uppercase()) {
                             "DB", "BYTE" -> {
                                 if (value < -128 || value > 255) error("Line ${'$'}{typeTok.line}: Value out of 8-bit range for DB/BYTE: ${'$'}value")
-                                mem.writeByte(physicalAddress, value.toLong())
+                                mem.writeByte(physicalAddress, value.toShort())
                                 currentDataOffset += 1
                             }
                             "DW", "WORD" -> {
                                 if (value < -32768 || value > 65535) error("Line ${'$'}{typeTok.line}: Value out of 16-bit range for DW/WORD: ${'$'}value")
-                                mem.writeWord(physicalAddress, value.toLong())
+                                mem.writeWord(physicalAddress, value.toInt())
                                 currentDataOffset += 2
                             }
                             "DD", "DWORD", "LONG" -> {
-                                mem.writeDWord(physicalAddress, value.toLong())
+                                mem.writeDWord(physicalAddress, value)
                                 currentDataOffset += 4
                             }
                             else -> error("Line ${'$'}{typeTok.line}: Unsupported data directive '${'$'}{typeTok.text}'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")

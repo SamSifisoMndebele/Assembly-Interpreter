@@ -18,7 +18,7 @@ sealed class Operand {
      *
      * @property value The 32-bit integer value.
      */
-    data class ImmOp(val value: Long): Operand()
+    data class ImmOp(val value: UInt): Operand()
 
     /**
      * Represents a symbolic label operand. This is typically used for jumps and calls
@@ -34,5 +34,5 @@ sealed class Operand {
      * @property base An optional base register used in address calculation (e.g., `[BX]`, `[EAX + disp]`).
      * @property disp An optional displacement value used in address calculation (e.g., `[1234h]`, `[BX + 8]`).
      */
-    data class MemOp(val base: Reg?, val disp: Long?): Operand() // [base + disp] or [disp]
+    data class MemOp(val base: Reg?, val disp: UInt?): Operand() // [base + disp] or [disp]
 }

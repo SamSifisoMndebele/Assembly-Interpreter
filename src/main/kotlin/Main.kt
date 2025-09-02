@@ -17,10 +17,10 @@ fun main(args: Array<String>) {
     }
 
     try {
-        val mem = Memory()
+        val mem = Memory(1024)
         val parser = Parser(src, mem)
         val parsed = parser.parseProgram()
-        val cpu = CPU(mem, parsed.labels)
+        val cpu = CPU(mem, parsed.labels, 256)
         cpu.run(parsed.instructions)
 
         cpu.printRegisters()

@@ -4,17 +4,22 @@ package cpu
  * Represents the memory of the CPU. This implementation focuses on byte-addressable memory
  * with support for reading and writing 8-bit, 16-bit, and 32-bit values in little-endian format.
  *
- * @property mb The size of the memory in megabytes. Defaults to 1MB.
- *                   The minimum configurable size is 32 bytes, and the maximum is 8GB.
+ * @property bytes The size of the memory in bytes. Defaults to 1MB (1,048,576 bytes).
+ *                   The minimum configurable size is 32 bytes, and the maximum is 8GB (8,589,934,592 bytes).
+ *                   A secondary constructor is available to initialize memory using kilobytes (KB).
  */
 @OptIn(ExperimentalUnsignedTypes::class)
-class Memory(mb: Float = 1f) {
+class Memory(bytes: Long = 1_048_576) {
     init {
-        require(mb * 32_768 >= 1 && mb <= 8_192) { "Memory size must be between 32 bytes and 8GB" }
+        require(bytes in 32..8_589_934_592) {
+            "Memory size must be between 32 bytes and 8GB"
+        }
     }
+    @Suppress("unused")
+    constructor(kb: Int) : this(kb * 1024L)
 
-    private val mem = UIntArray((mb * 262_144).toInt()) // each element is 32-bit (4 bytes)
-    val size = mem.size.toLong() * 4 // total memory in bytes
+    private val mem = UIntArray((bytes / 4).toInt()) // each element is 32-bit (4 bytes)
+    val bytes = bytes
 
     /**
      * Reads an 8-bit value from the specified memory address.
@@ -87,17 +92,17 @@ class Memory(mb: Float = 1f) {
      *
      * @param rows The number of rows to print. Defaults to the number of rows available in memory.
      */
-    fun printMemory(rows: Int = ((size + 15) / 16).toInt().coerceAtLeast(1)) {
+    fun printMemory(rows: Int = ((bytes + 15) / 16).toInt().coerceAtLeast(1)) {
         println("Memory Dump:")
         println("Address    | " + (0 until 16).joinToString(" ") { "%02X".format(it) })
         println("-----------|-" + "-".repeat(47))
-        val actualRows = rows.coerceAtMost(((size + 15) / 16).toInt().coerceAtLeast(1))
+        val actualRows = rows.coerceAtMost(((bytes + 15) / 16).toInt().coerceAtLeast(1))
         for (i in 0 until actualRows) {
             val baseAddr = i * 16
             print("%08X   | ".format(baseAddr))
             for (j in 0 until 16) {
                 val addr = baseAddr + j
-                if (addr < size) print("%02X ".format(readByte(addr).toShort())) else print("   ")
+                if (addr < bytes) print("%02X ".format(readByte(addr).toShort())) else print("   ")
             }
             println()
         }
@@ -106,7 +111,7 @@ class Memory(mb: Float = 1f) {
 
 // Testing
 fun main() {
-    val memory = Memory(64f / (1024*1024))
+    val memory = Memory(64L)
 
     // Example of writing and reading memory
     memory.writeByte(0x00, 0xABu)

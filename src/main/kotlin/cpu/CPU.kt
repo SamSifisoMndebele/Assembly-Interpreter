@@ -9,15 +9,16 @@ import model.Reg
 import model.Reg.*
 
 @OptIn(ExperimentalUnsignedTypes::class)
-class CPU(private val mem: Memory, private val labels: Map<String, UInt> = emptyMap()) {
+class CPU(private val mem: Memory, private val labels: Map<String, UInt> = emptyMap(), private val stackBytes: Long = 65_536) {
+    @Suppress("unused")
+    constructor(memory: Memory, labels: Map<String, UInt> = emptyMap(), stackKb: Int) : this(memory, labels, stackKb * 1024L)
+
     private enum class Reg32 { EAX, EBX, ECX, EDX, ESI, EDI, EBP, ESP }
     private val regs = UIntArray(8)
     @Suppress("PrivatePropertyName")
     private var EFLAGS: UInt = 0u
     @Suppress("PrivatePropertyName")
-    private var IP: UInt = 0u // Instruction Pointer
-    private enum class SegReg { CS, DS, SS, ES, FS, GS }
-    private val segRegs = UShortArray(6)
+    private var EIP: UInt = 0u // Instruction Pointer
 
     private val Reg.reg32: Int
         get() = when (this) {
@@ -29,7 +30,6 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
             EDI, DI -> Reg32.EDI.ordinal
             EBP, BP -> Reg32.EBP.ordinal
             ESP, SP -> Reg32.ESP.ordinal
-            else -> error("Unsupported register: $this")
         }
 
     // === Register access ===
@@ -45,7 +45,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         return when (reg) {
             AL, BL, CL, DL -> (raw and 0xFFu).toUByte()
             AH, BH, CH, DH -> ((raw shr 8) and 0xFFu).toUByte()
-            else -> error("Unsupported register: $reg")
+            else -> error("Unsupported 8-bit register: $reg")
         }
     }
     private fun set8(reg: Reg, value: UByte) {
@@ -54,37 +54,29 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         regs[i] = when (reg) {
             AL, BL, CL, DL -> (raw and 0xFFFF_FF00u) or value.toUInt()
             AH, BH, CH, DH -> (raw and 0xFFFF_00FFu) or (value.toUInt() shl 8)
-            else -> error("Unsupported register: $reg")
+            else -> error("Unsupported 8-bit register: $reg")
         }
     }
+
     private fun push(value: UInt) {
         val esp = regs[Reg32.ESP.ordinal] - 4u
-        if (esp < 0u) error("Stack overflow: ESP offset would be negative.")
+        if (esp < 0u) error("Stack overflow: ESP would be less than 4 (cannot decrement further).")
         regs[Reg32.ESP.ordinal] = esp
-        // Use SS:ESP for stack operations
-        val physicalAddress = segAddr(getSeg(SegReg.SS), esp)
-        // Boundary check for the write operation
-        if (physicalAddress >= mem.size.toUInt() || physicalAddress + 3u >= mem.size.toUInt()) {
-            error("Stack physical write out of bounds: Addr=0x${physicalAddress.toString(16)}, ESP_Offset=0x${esp.toString(16)}, SS=0x${getSeg(SegReg.SS).toString(16)}, MemSize=0x${mem.size.toString(16)}")
+        require(esp < mem.bytes.toUInt()) { // Check lower bound for stack growing down
+            "Stack physical write out of bounds: Addr=0x${esp.toString(16)}, MemSize=0x${mem.bytes.toString(16)}"
         }
-        mem.writeDWord(physicalAddress.toInt(), value)
+        mem.writeDWord(esp.toInt(), value)
     }
+
     private fun pop(): UInt {
-        val esp = regs[Reg32.ESP.ordinal]
-        // Use SS:ESP for stack operations
-        val physicalAddress = segAddr(getSeg(SegReg.SS), esp)
-        // Boundary check for the read operation
-        // Assuming stackOffsetForEspInitialization holds the original top offset
-        if (physicalAddress >= mem.size.toUInt() || physicalAddress + 3u >= mem.size.toUInt()) {
-            error("Stack physical read out of bounds: Addr=0x${physicalAddress.toString(16)}, ESP_Offset=0x${esp.toString(16)}, SS=0x${getSeg(SegReg.SS).toString(16)}, MemSize=0x${mem.size.toString(16)}")
+        var esp = regs[Reg32.ESP.ordinal]
+        require(esp + 3u < mem.bytes.toUInt()) { // Check upper bound for pop
+            "Stack physical read out of bounds: Addr=0x${esp.toString(16)}, MemSize=0x${mem.bytes.toString(16)}"
         }
-        val value = mem.readDWord(physicalAddress.toInt())
-        regs[Reg32.ESP.ordinal] = esp + 4u
+        val value = mem.readDWord(esp.toInt())
+        esp += 4u
+        regs[Reg32.ESP.ordinal] = esp
         return value
-    }
-    private fun getSeg(seg: SegReg) = segRegs[seg.ordinal]
-    private fun setSeg(seg: SegReg, value: UShort) {
-        segRegs[seg.ordinal] = value
     }
     private fun setFlag(flag: EFlags, state: Boolean) {
         EFLAGS = if (state) {
@@ -96,7 +88,6 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
     private fun getFlag(flag: EFlags): Boolean {
         return (EFLAGS and (1u shl flag.bit)) != 0u
     }
-
 
     // === Helpers ===
     private fun parity(b: UByte) = Integer.bitCount(b.toInt()) % 2 == 0
@@ -123,11 +114,6 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         setFlag(EFlags.AF, (((a and 0xFu) - (b and 0xFu)) and 0x10u) != 0u)
         updateZN(res)
     }
-    // Calculates physical address: (segment << 4) + offset
-    private fun segAddr(segValue: UShort, offset: UInt): UInt {
-        return (segValue.toUInt() shl 4) + offset
-    }
-
 
     // === Operand access ===
     private fun read(op: Operand): UInt = when (op) {
@@ -140,14 +126,11 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         is MemOp -> {
             val baseValue = op.base?.let { get32(it) } ?: 0u
             val displacement = op.disp ?: 0u
-            val effectiveAddress = baseValue + displacement
-            // Default to DS segment for memory access
-            // TODO: Allow segment overrides for memory operands
-            val physicalAddress = segAddr(getSeg(SegReg.DS), effectiveAddress)
-            if (physicalAddress >= mem.size.toUInt() || physicalAddress + 3u >= mem.size.toUInt()) { // Assuming DWORD read
-                error("Memory read out of bounds: Addr=0x${physicalAddress.toString(16)}, EA=0x${effectiveAddress.toString(16)}, DS=0x${getSeg(SegReg.DS).toString(16)}, MemSize=0x${mem.size.toString(16)}")
+            val address = baseValue + displacement
+            if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) {
+                error("Memory read out of bounds: Addr=0x${address.toString(16)}, MemSize=0x${mem.bytes.toString(16)}")
             }
-            mem.readDWord(physicalAddress.toInt())
+            mem.readDWord(address.toInt())
         }
         is LabelOp -> labels[op.name] ?: error("Undefined label: ${op.name}")
     }
@@ -161,83 +144,31 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
             is MemOp -> {
                 val baseValue = op.base?.let { get32(it) } ?: 0u
                 val displacement = op.disp ?: 0u
-                val effectiveAddress = baseValue + displacement
-                // Default to DS segment for memory access
-                // TODO: Allow segment overrides for memory operands
-                val physicalAddress = segAddr(getSeg(SegReg.DS), effectiveAddress)
-                if (physicalAddress >= mem.size.toUInt() || physicalAddress + 3u >= mem.size.toUInt()) { // Assuming DWORD write
-                    error("Memory write out of bounds: Addr=0x${physicalAddress.toString(16)}, EA=0x${effectiveAddress.toString(16)}, DS=0x${getSeg(SegReg.DS).toString(16)}, MemSize=0x${mem.size.toString(16)}")
+                val address = baseValue + displacement
+                if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) {
+                    error("Memory write out of bounds: Addr=0x${address.toString(16)}, MemSize=0x${mem.bytes.toString(16)}")
                 }
-                mem.writeDWord(physicalAddress.toInt(), value)
+                mem.writeDWord(address.toInt(), value)
             }
             else -> error("Cannot write to $op")
         }
     }
 
-    // Store the initial ESP offset for stack boundary checks if needed
-    private var stackOffsetForEspInitialization: UInt = 0u
+//    private var initialEspValue: UInt = 0u
 
     init {
         regs.fill(0u)
-        segRegs.fill(0u)
 
-        // Define memory layout constants
-        val csBaseSegment: UShort = 0x0100u // Arbitrary CS base segment
-        val dsBaseSegment: UShort = 0x1000u // Arbitrary DS base segment (e.g., physical 0x10000)
-        val ssBaseSegment: UShort = 0x2000u // Arbitrary SS base segment (e.g., physical 0x20000)
+        val esp = mem.bytes.toUInt() // ESP points to the address just after the top of stack
+        regs[Reg32.ESP.ordinal] = esp
+        val stackLimit = if (mem.bytes >= stackBytes) mem.bytes - stackBytes else 0
 
-        // Define stack size (e.g., 64KB)
-        val stackSizeBytes = 0x10000u // 64KB
-
-        // Calculate physical base for stack segment
-        val stackPhysicalBase = ssBaseSegment.toUInt() shl 4
-
-        // Calculate the highest physical address for the stack
-        // ESP will be an offset from the start of the SS segment.
-        // The stack grows downwards, so ESP is initialized to the size of the stack area.
-        stackOffsetForEspInitialization = stackSizeBytes
-
-        // Ensure the entire stack segment fits within the total available memory
-        val stackPhysicalTop = stackPhysicalBase + stackOffsetForEspInitialization // This is one byte BEYOND the stack
-        if (stackPhysicalTop > mem.size.toUInt()) {
-            error("Stack segment (SS_base=0x${ssBaseSegment.toString(16)}, size=0x${stackSizeBytes.toString(16)}) exceeds available memory (0x${mem.size.toString(16)}). Max physical stack top: 0x${stackPhysicalTop.toString(16)}")
+        println("Memory size: ${mem.bytes} bytes (${mem.bytes.toString(16).uppercase()}h) ")
+        println("Initial ESP (physical top of stack, exclusive): ${esp.toString(16)}")
+        require(stackBytes <= mem.bytes) {
+            "Stack require $stackBytes bytes, but memory has only ${mem.bytes} bytes."
         }
-        if (stackPhysicalBase >= mem.size.toUInt()) {
-            error("Stack segment base (0x${stackPhysicalBase.toString(16)}) is outside memory (0x${mem.size.toString(16)})")
-        }
-
-
-        // Initialize Segment Registers
-        setSeg(SegReg.CS, csBaseSegment)
-        setSeg(SegReg.DS, dsBaseSegment)
-        setSeg(SegReg.SS, ssBaseSegment)
-        // ES, FS, GS could also be initialized, e.g., to DS or another segment.
-        setSeg(SegReg.ES, dsBaseSegment)
-        setSeg(SegReg.FS, 0u) // Typically 0 or some OS specific value
-        setSeg(SegReg.GS, 0u) // Typically 0 or some OS specific value
-
-
-        // Initialize ESP. ESP holds the offset *within the SS segment*.
-        // If stack grows downwards, it's initialized to the size of the stack memory region.
-        regs[Reg32.ESP.ordinal] = stackOffsetForEspInitialization
-
-        // Sanity check after initialization
-        val initialPhysicalEsp = segAddr(getSeg(SegReg.SS), get32(ESP))
-        println("Initial SS:0x${getSeg(SegReg.SS).toString(16)}, ESP_offset:0x${get32(ESP).toString(16)}, Physical ESP (top of stack): 0x${initialPhysicalEsp.toString(16)}")
-        println("Stack physical base: 0x${stackPhysicalBase.toString(16)}")
-        println("Stack will operate between physical addresses 0x${stackPhysicalBase.toString(16)} and 0x${(stackPhysicalBase + stackSizeBytes - 1u).toString(16)} (inclusive)")
-
-        // Check if the initial physical address pointed to by SS:ESP (before first push) is valid
-        // Note: ESP points to the "top" free location. The first push will decrement ESP THEN write.
-        // So, segAddr(SS, ESP-4) is the first address written to.
-        if (stackOffsetForEspInitialization < 4u) {
-            println("Warning: Initial stack size is very small, may lead to immediate overflow on push.")
-        } else {
-            val firstPushAddress = segAddr(getSeg(SegReg.SS), stackOffsetForEspInitialization - 4u)
-            if (firstPushAddress < stackPhysicalBase || firstPushAddress >= mem.size.toUInt()) {
-                error("Initial ESP setup results in first push (0x${firstPushAddress.toString(16)}) being out of stack segment or memory bounds.")
-            }
-        }
+        println("Stack region: [${stackLimit.toString(16)} to ${(esp - 1u).toString(16)}]")
     }
 
     /**
@@ -271,7 +202,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                         push(get32(EDI))
                     }
                      Operation.OperationZero.RET -> {
-                        IP = pop() // Pop return address from stack into IP
+                        EIP = pop() // Pop return address from stack into IP
                         return true // IP was modified
                      }
                 }
@@ -283,25 +214,16 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                         val a = read(operand)
                         val res = a - 1u
                         write(operand, res)
-                        updateZN(res) // Z,S,P
-                        // OF for DEC: set if positive operand becomes max negative, or min negative becomes positive.
-                        // For a single decrement, OF is set if operand was 0x80000000 and becomes 0x7FFFFFFF.
-                        // Or, more simply, if sign bit changes from 0 to 1 unexpectedly for result.
-                        // Simplified: if positive number becomes negative (e.g. 0 -> -1 is not an overflow, 1 -> 0 is not)
-                        // OF is set if the most significant bit of the operand was 0 and the most significant bit of the result is 1
-                        // and the operand was not 0. (this needs more careful thought for exact x86 flags)
-                        // A simpler OF for DEC x: set if x was min_int (0x80000000), result wraps to max_int (0x7FFFFFFF) - no, this is not correct for DEC.
-                        // OF for DEC is set if result is 0x7FFFFFFF (max positive)
-                        setFlag(EFlags.OF, res == 0x7FFFFFFFu) // Simplified, needs review for exact x86 behavior
+                        updateZN(res) 
+                        setFlag(EFlags.OF, res == 0x7FFFFFFFu) 
                         setFlag(EFlags.AF, ((a and 0xFu) - 1u) and 0x10u != 0u)
                     }
                     Operation.OperationOne.INC -> {
                         val a = read(operand)
                         val res = a + 1u
                         write(operand, res)
-                        updateZN(res) // Z,S,P
-                        // OF for INC: set if result is 0x80000000 (min negative)
-                        setFlag(EFlags.OF, res == 0x80000000u) // Simplified, needs review
+                        updateZN(res) 
+                        setFlag(EFlags.OF, res == 0x80000000u) 
                         setFlag(EFlags.AF, ((a and 0xFu) + 1u) and 0x10u != 0u)
                     }
                     Operation.OperationOne.POP -> {
@@ -312,26 +234,23 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                     }
                     Operation.OperationOne.CALL -> {
                         val targetAddress = read(operand)
-                        // Assuming IP points to the current CALL instruction.
-                        // The return address is the address of the *next* instruction.
-                        // If your instructions are 1 "unit" long in the program list:
-                        push(IP + 1u)
-                        IP = targetAddress
-                        return true // IP was modified
+                        push(EIP + 1u) // Assuming instructions are 1 "unit" (e.g. byte, or entry) long for IP increment
+                        EIP = targetAddress
+                        return true 
                     }
                     Operation.OperationOne.JMP -> {
-                        IP = read(operand)
+                        EIP = read(operand)
                         return true
                     }
                     Operation.OperationOne.JNZ -> {
                         if (!getFlag(EFlags.ZF)) {
-                            IP = read(operand)
+                            EIP = read(operand)
                             return true
                         }
                     }
                     Operation.OperationOne.JZ -> {
                         if (getFlag(EFlags.ZF)) {
-                            IP = read(operand)
+                            EIP = read(operand)
                             return true
                         }
                     }
@@ -339,7 +258,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                         val ecx = get32(ECX) - 1u
                         set32(ECX, ecx)
                         if (ecx != 0u) {
-                            IP = read(operand)
+                            EIP = read(operand)
                             return true
                         }
                     }
@@ -375,23 +294,17 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                 }
             }
         }
-        return false // IP was not modified by jump/call/ret
+        return false
     }
 
-
     fun run(program: List<Instruction>, startAddress: UInt = 0u, maxSteps: Int = 1000) {
-        IP = startAddress
+        EIP = startAddress
         var steps = 0
 
-        // Pre-pass to define all labels, if you had a separate Instruction type for label definitions.
-        // Since labels are resolved by `read(LabelOp)` using `symbolTable`,
-        // ensure `defineSymbol` is called for all labels before `run` or that
-        // LabelOp operands in the program list are resolvable at runtime.
-
-        while (IP < program.size.toUInt() && steps < maxSteps) {
-            val instructionAddress = IP
+        while (EIP < program.size.toUInt() && steps < maxSteps) {
+            val instructionAddress = EIP
             if (instructionAddress.toInt() >= program.size) {
-                println("Program execution stopped: IP (0x${IP.toString(16)}) went out of program bounds (0x${program.size.toUInt().toString(16)}).")
+                println("Program execution stopped: IP (0x${EIP.toString(16)}) went out of program bounds (0x${program.size.toUInt().toString(16)}).")
                 break
             }
             val instruction = program[instructionAddress.toInt()]
@@ -399,18 +312,17 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
             val ipModifiedByInstruction = execute(instruction)
 
             if (!ipModifiedByInstruction) {
-                IP += 1u // Increment IP only if not a jump/call/ret
+                EIP += 1u
             }
             steps++
         }
 
-        if (IP >= program.size.toUInt() && steps < maxSteps) {
+        if (EIP >= program.size.toUInt() && steps < maxSteps) {
             println("Program execution finished normally (IP reached end of program).")
         } else if (steps >= maxSteps) {
-            println("Program execution stopped: maximum steps ($maxSteps) reached. IP = 0x${IP.toString(16)}")
+            println("Program execution stopped: maximum steps ($maxSteps) reached. IP = 0x${EIP.toString(16)}")
         }
     }
-
 
     // === Debug helpers ===
     fun get(r: Reg): UInt = when (r) {
@@ -433,35 +345,50 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         println(" EDI=%08X | DI=%04X".format(get32(EDI).toInt(), get16(DI).toInt()))
         println(" EBP=%08X | BP=%04X".format(get32(EBP).toInt(), get16(BP).toInt()))
         println(" ESP=%08X | SP=%04X".format(get32(ESP).toInt(), get16(SP).toInt()))
-        println(" EIP=%08X".format(IP.toInt()))
-        println(" CF=%d PF=%d AF=%d ZF=%d SF=%d OF=%d".format(getFlag(EFlags.CF).int, getFlag(EFlags.PF).int, getFlag(EFlags.AF).int, getFlag(EFlags.ZF).int, getFlag(EFlags.SF).int, getFlag(EFlags.OF).int))
-        println(" CS=%04X DS=%04X SS=%04X ES=%04X FS=%04X GS=%04X".format(getSeg(SegReg.CS).toInt(), getSeg(SegReg.DS).toInt(), getSeg(SegReg.SS).toInt(), getSeg(SegReg.ES).toInt(), getSeg(SegReg.FS).toInt(), getSeg(SegReg.GS).toInt()))
+        println(" EIP=%08X".format(EIP.toInt()))
+        println(" EFL=%08X | CF=%d PF=%d AF=%d ZF=%d SF=%d OF=%d".format(EFLAGS.toInt(), getFlag(EFlags.CF).int, getFlag(EFlags.PF).int, getFlag(EFlags.AF).int, getFlag(EFlags.ZF).int, getFlag(EFlags.SF).int, getFlag(EFlags.OF).int))
         println()
     }
     private val Boolean.int get() = if (this) 1 else 0
 }
 
 fun main() {
-    val mem = Memory(1024f / (1024*1024))
-    val cpu = CPU(mem)
-    println("Memory size: ${mem.size} bytes")
-
-//    // Define some symbols
-//    cpu.defineSymbol("MY_LABEL", 0x100u)
-//    cpu.defineSymbol("LOOP_START", 0x200u)
+    val mem = Memory(1024)
+    val cpu = CPU(mem, stackBytes = 256)
+    println("--- CPU State After Initialization ---")
+    cpu.printRegisters()
+    println("------------------------------------")
 
     val program = listOf(
-         Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EAX), MemOp(base = null, disp = 0x10u)), // MOV EAX, [DS:0x10]
-         Instruction.InstructionOne(Operation.OperationOne.PUSH, ImmOp(0x1234u)),
-         Instruction.InstructionOne(Operation.OperationOne.POP, RegOp(EBX)),
-
-//         Instruction.InstructionOne(Operation.OperationOne.JMP, LabelOp("LOOP_START")),
-
-//         Instruction.InstructionOne(Operation.OperationOne.CALL, LabelOp("MY_SUBROUTINE")),
-//         Instruction.InstructionZero(Operation.OperationZero.RET) // Ensure RET is defined
+        Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EAX), ImmOp(0xAu)), // MOV EAX, 0xA
+        Instruction.InstructionOne(Operation.OperationOne.PUSH, RegOp(EAX)),              // PUSH EAX
+        Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EBX), ImmOp(0xBu)), // MOV EBX, 0xB
+        Instruction.InstructionOne(Operation.OperationOne.PUSH, RegOp(EBX)),              // PUSH EBX
+        Instruction.InstructionOne(Operation.OperationOne.POP, RegOp(ECX)),               // POP ECX (should be 0xB)
+        Instruction.InstructionOne(Operation.OperationOne.POP, RegOp(EDX))                // POP EDX (should be 0xA)
     )
-     cpu.run(program, startAddress = 0u, maxSteps = 100)
+    
+    println("--- Running Program ---")
+    cpu.run(program, startAddress = 0u, maxSteps = 100)
+    println("---------------------")
 
+    println("--- CPU State After Program Execution ---")
     cpu.printRegisters()
-//    mem.printMemory()
+    println("---------------------------------------")
+
+    // Test memory operation
+    val dataAddress = 0x100u // Example physical address
+    // Ensure this address is valid and writable
+    if (dataAddress + 3u < mem.bytes.toUInt()) {
+        println("--- Testing Memory Write/Read ---")
+        // MOV [0x100], EAX (where EAX is 0xA after first POP)
+        cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, MemOp(null, dataAddress), RegOp(EDX))) 
+        // MOV EDI, [0x100]
+        cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EDI), MemOp(null, dataAddress)))
+        cpu.printRegisters()
+        println("Value at mem[0x100]: 0x${mem.readDWord(dataAddress.toInt()).toString(16)}")
+        println("---------------------------------")
+    } else {
+        println("Skipping memory write/read test as address 0x100 is out of bounds for the current memory size.")
+    }
 }

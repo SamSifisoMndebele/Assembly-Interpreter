@@ -89,11 +89,11 @@ class Memory(mb: Float = 1f) {
      *
      * @param rows The number of rows to print. Defaults to the number of rows available in memory.
      */
-    fun printMemory(rows: Int = (size / 16).toInt().coerceAtLeast(1)) {
+    fun printMemory(rows: Int = ((size + 15) / 16).toInt().coerceAtLeast(1)) {
         println("Memory Dump:")
         println("Address    | " + (0 until 16).joinToString(" ") { "%02X".format(it) })
         println("-----------|-" + "-".repeat(47))
-        val actualRows = rows.coerceAtMost((size / 16).toInt().coerceAtLeast(1))
+        val actualRows = rows.coerceAtMost(((size + 15) / 16).toInt().coerceAtLeast(1))
         for (i in 0 until actualRows) {
             val baseAddr = i * 16
             print("%08X   | ".format(baseAddr))
@@ -108,7 +108,7 @@ class Memory(mb: Float = 1f) {
 
 // Testing
 fun main() {
-    val memory = Memory(32f / 1024 / 1024)
+    val memory = Memory(64f / (1024*1024))
 
     // Example of writing and reading memory
     memory.writeByte(0x00, 0xABu)

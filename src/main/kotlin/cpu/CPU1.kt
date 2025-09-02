@@ -14,7 +14,7 @@ import model.Reg
  *                 The keys are [Reg] enum values representing different registers,
  *                 and the values are [Long] representing the register's content.
  *                 Registers are initialized to 0. This map includes entries for
- *                 8-bit, 16-bit, 32-bit, and segment registers.
+ *                 8-bit, 16-bit, and 32-bit registers.
  *                 Note: 8-bit registers like AL, AH are not directly stored here
  *                 but are accessed/modified via their parent 16-bit register (e.g., AX).
  * @property IP The Instruction Pointer, a [Long] value indicating the memory address
@@ -27,8 +27,7 @@ import model.Reg
 data class CPU1(
     val regs: MutableMap<Reg, Long> = mutableMapOf(
         Reg.EAX to 0, Reg.EBX to 0, Reg.ECX to 0, Reg.EDX to 0,
-        Reg.ESI to 0, Reg.EDI to 0, Reg.EBP to 0, Reg.ESP to 0,
-        Reg.CS to 0L, Reg.DS to 0x1000L, Reg.SS to 0L, Reg.ES to 0L // Initialize segment registers
+        Reg.ESI to 0, Reg.EDI to 0, Reg.EBP to 0, Reg.ESP to 0
     ),
     @Suppress("PropertyName")
     var IP: Long = 0, // instruction pointer (index into an instruction list)
@@ -59,11 +58,6 @@ data class CPU1(
             Reg.DI -> regs[Reg.EDI]!! and 0xFFFFL
             Reg.BP -> regs[Reg.EBP]!! and 0xFFFFL
             Reg.SP -> regs[Reg.ESP]!! and 0xFFFFL
-            // Segment Registers (16-bit)
-            Reg.CS -> regs[Reg.CS]!! and 0xFFFFL
-            Reg.DS -> regs[Reg.DS]!! and 0xFFFFL
-            Reg.SS -> regs[Reg.SS]!! and 0xFFFFL
-            Reg.ES -> regs[Reg.ES]!! and 0xFFFFL
             // 32-bit General Purpose Registers
             Reg.EAX, Reg.EBX, Reg.ECX, Reg.EDX, Reg.ESI, Reg.EDI, Reg.EBP, Reg.ESP -> regs[reg]!!
         }
@@ -94,11 +88,6 @@ data class CPU1(
             Reg.DI -> regs[Reg.EDI] = (regs[Reg.EDI]!! and 0xFFFF0000L) or (value and 0xFFFFL)
             Reg.BP -> regs[Reg.EBP] = (regs[Reg.EBP]!! and 0xFFFF0000L) or (value and 0xFFFFL)
             Reg.SP -> regs[Reg.ESP] = (regs[Reg.ESP]!! and 0xFFFF0000L) or (value and 0xFFFFL)
-            // Segment Registers (16-bit)
-            Reg.CS -> regs[Reg.CS] = value and 0xFFFFL
-            Reg.DS -> regs[Reg.DS] = value and 0xFFFFL
-            Reg.SS -> regs[Reg.SS] = value and 0xFFFFL
-            Reg.ES -> regs[Reg.ES] = value and 0xFFFFL
             // 32-bit General Purpose Registers
             Reg.EAX, Reg.EBX, Reg.ECX, Reg.EDX, Reg.ESI, Reg.EDI, Reg.EBP, Reg.ESP -> {
                 if (regs.containsKey(reg)) regs[reg] = value
@@ -122,8 +111,6 @@ data class CPU1(
         sb.appendLine("  EBP: 0x%08X (BP: 0x%04X)".format(readReg(Reg.EBP), readReg(Reg.BP)))
         sb.appendLine("  ESP: 0x%08X (SP: 0x%04X)".format(readReg(Reg.ESP), readReg(Reg.SP)))
         sb.appendLine("  IP:  0x%08X".format(IP))
-        sb.appendLine("Segment Registers:")
-        sb.appendLine("  CS: 0x%04X   DS: 0x%04X   SS: 0x%04X   ES: 0x%04X".format(readReg(Reg.CS), readReg(Reg.DS), readReg(Reg.SS), readReg(Reg.ES)))
         sb.appendLine("Flags: CF=${flags.CF.toInt()} PF=${flags.PF.toInt()} AF=${flags.AF.toInt()} ZF=${flags.ZF.toInt()} SF=${flags.SF.toInt()} OF=${flags.OF.toInt()}")
         return sb.toString()
     }

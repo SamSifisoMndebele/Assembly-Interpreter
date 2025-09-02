@@ -5,10 +5,10 @@ package cpu
  * with support for reading and writing 8-bit, 16-bit, and 32-bit values in little-endian format.
  *
  * @property bytes The size of the memory in bytes. Must be between 32 bytes and 8GB (8,589,934,592 bytes).
- *                 Defaults to 1MB (1,048,576 bytes).
+ *                 Defaults to 64KB (65,536 bytes).
  */
 @OptIn(ExperimentalUnsignedTypes::class)
-class Memory(bytes: Long = 1_048_576) {
+class Memory(bytes: Long = 65_536) {
     init {
         require(bytes in 32..8_589_934_592) {
             "Memory size must be between 32 bytes and 8GB"
@@ -24,6 +24,15 @@ class Memory(bytes: Long = 1_048_576) {
 
     private val mem = UIntArray((bytes / 4).toInt()) // each element is 32-bit (4 bytes)
     val bytes = bytes
+
+    companion object {
+        const val RESET = "\u001B[0m"
+        const val RED = "\u001B[31m"
+        const val GREEN = "\u001B[32m"
+        const val YELLOW = "\u001B[33m"
+        const val BLUE = "\u001B[34m"
+        const val BOLD = "\u001B[1m"
+    }
 
     /**
      * Reads an 8-bit value from the specified memory address.
@@ -97,16 +106,23 @@ class Memory(bytes: Long = 1_048_576) {
      * @param rows The number of rows to print. Defaults to the number of rows available in memory.
      */
     fun printMemory(rows: Int = ((bytes + 15) / 16).toInt().coerceAtLeast(1)) {
-        println("Memory Dump:")
-        println("Address    | " + (0 until 16).joinToString(" ") { "%02X".format(it) })
-        println("-----------|-" + "-".repeat(47))
+        println("${BLUE}Memory Dump:$RESET")
+        println("${BLUE}Address    | ${(0 until 16).joinToString(" ") { "%02X".format(it) }}$RESET")
+        println("${BLUE}-----------|-${"-".repeat(47)}$RESET")
         val actualRows = rows.coerceAtMost(((bytes + 15) / 16).toInt().coerceAtLeast(1))
+        val bold = BOLD
         for (i in 0 until actualRows) {
             val baseAddr = i * 16
-            print("%08X   | ".format(baseAddr))
+            print("$YELLOW%08X$RESET   | ".format(baseAddr))
             for (j in 0 until 16) {
                 val addr = baseAddr + j
-                if (addr < bytes) print("%02X ".format(readByte(addr).toShort())) else print("   ")
+                if (addr < bytes) {
+                    val byteValue = readByte(addr)
+                    val color = if (byteValue == 0u.toUByte()) "" else "$GREEN$bold"
+                    print("$color%02X $RESET".format(byteValue.toShort()))
+                } else {
+                    print("   ")
+                }
             }
             println()
         }
@@ -125,7 +141,9 @@ fun main() {
 
     memory.printMemory()
 
-    println("Byte at 00: %02X".format(memory.readByte(0x00).toShort()))
-    println("Word at 02: %04X".format(memory.readWord(0x02).toShort()))
-    println("DWord at 04: %08X".format(memory.readDWord(0x04).toShort()))
+    val reset = "\u001B[0m"
+    val red = "\u001B[31m"
+    println("$red Byte at 00: %02X $reset".format(memory.readByte(0x00).toShort()))
+    println("$red Word at 02: %04X $reset".format(memory.readWord(0x02).toShort()))
+    println("$red DWord at 04: %08X $reset".format(memory.readDWord(0x04).toShort()))
 }

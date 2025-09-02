@@ -3,7 +3,7 @@ package asm
 import cpu.CPU
 import cpu.Memory
 import model.Instruction
-import model.Op
+import model.Operation
 import model.Operand
 import model.Reg
 
@@ -14,11 +14,12 @@ import model.Reg
  * @property labels A map of labels to their corresponding instruction indices.
  * @property mem The memory model for the interpreter.
  */
-class Interpreter(
+/*class Interpreter(
     private val program: List<Instruction>,
     private val labels: Map<String, Long>,
     private val mem: Memory
-) {
+) 
+{
     private val cpu = CPU()
 
     init {
@@ -27,13 +28,13 @@ class Interpreter(
         cpu.writeReg(Reg.ESP, mem.size) // SP will be an offset; if SS is 0, it's also the physical top.
     }
 
-    /**
+    *//**
      * Calculates the physical memory address for a given memory operand.
      * It considers the base register, displacement, and segment register.
      *
      * @param memOp The memory operand.
      * @return The calculated physical memory address.
-     */
+     *//*
     private fun addrOf(memOp: Operand.MemOp): Long {
         val offsetPart = (memOp.base?.let { cpu.readReg(it) } ?: 0) + (memOp.disp ?: 0)
 
@@ -47,7 +48,7 @@ class Interpreter(
         return (segmentBase + offsetPart) and 0xFFFFFFFFL
     }
 
-    /**
+    *//**
      * Reads the value of an operand.
      *
      * @param op The operand to read.
@@ -55,7 +56,7 @@ class Interpreter(
      * @param size The size of the data to read in bits (8, 16, or 32). Defaults to 32.
      * @return The value of the operand.
      * @throws error if the operand type is unimplemented or size is unsupported.
-     */
+     *//*
     private fun readOp(op: Operand, line: Int, size: Int = 32): Long = when(op) {
         is Operand.ImmOp -> when (size) {
             8 -> op.value and 0xFFL
@@ -74,7 +75,7 @@ class Interpreter(
         else -> error("Line $line: Unimplemented operand type ${op.javaClass.simpleName}")
     }
 
-    /**
+    *//**
      * Writes a value to an operand.
      *
      * @param op The operand to write to.
@@ -82,7 +83,7 @@ class Interpreter(
      * @param line The current line number, for error reporting.
      * @param size The size of the data to write in bits (8, 16, or 32). Defaults to 32.
      * @throws error if writing to an immediate or label, or if the operand type is unimplemented or size is unsupported.
-     */
+     *//*
     private fun writeOp(op: Operand, value: Long, line: Int, size: Int = 32) {
         when(op) {
             is Operand.RegOp -> cpu.writeReg(op.reg, value) // CPU handles size for register writes
@@ -101,13 +102,13 @@ class Interpreter(
         }
     }
 
-    /**
+    *//**
      * Sets the CPU flags based on the result of an addition operation.
      *
      * @param a The first operand of the addition.
      * @param b The second operand of the addition.
      * @param res The result of the addition.
-     */
+     *//*
     private fun setFlagsFromAdd(a: Long, b: Long, res: Long) {
         val mask = 0xFFFFFFFFL
         val signBit = 0x80000000L
@@ -135,13 +136,13 @@ class Interpreter(
         cpu.flags.PF = (parity % 2) == 0
     }
 
-    /**
+    *//**
      * Sets the CPU flags based on the result of a subtraction operation.
      *
      * @param a The first operand (minuend).
      * @param b The second operand (subtrahend).
      * @param res The result of the subtraction.
-     */
+     *//*
     private fun setFlagsFromSub(a: Long, b: Long, res: Long) {
         val mask = 0xFFFFFFFFL
         val signBit = 0x80000000L
@@ -167,32 +168,32 @@ class Interpreter(
     }
 
 
-    /**
+    *//**
      * Determines if a conditional jump (Jcc) should be taken based on CPU flags.
      *
      * @param op The jump operation code.
      * @return True if the jump condition is met, false otherwise.
-     */
-    private fun jccTaken(op: Op): Boolean = when(op) {
-        Op.JE -> cpu.flags.ZF
-        Op.JNE -> !cpu.flags.ZF
-        Op.JG -> (cpu.flags.SF == cpu.flags.OF) && !cpu.flags.ZF
-        Op.JL -> cpu.flags.SF != cpu.flags.OF
-        Op.JGE -> cpu.flags.SF == cpu.flags.OF
-        Op.JLE -> (cpu.flags.SF != cpu.flags.OF) || cpu.flags.ZF
-        Op.JA -> !cpu.flags.CF && !cpu.flags.ZF
-        Op.JB -> cpu.flags.CF
-        Op.JAE -> !cpu.flags.CF
-        Op.JBE -> cpu.flags.CF || cpu.flags.ZF
+     *//*
+    private fun jccTaken(op: Operation): Boolean = when(op) {
+        Operation.JE -> cpu.flags.ZF
+        Operation.JNE -> !cpu.flags.ZF
+        Operation.JG -> (cpu.flags.SF == cpu.flags.OF) && !cpu.flags.ZF
+        Operation.JL -> cpu.flags.SF != cpu.flags.OF
+        Operation.JGE -> cpu.flags.SF == cpu.flags.OF
+        Operation.JLE -> (cpu.flags.SF != cpu.flags.OF) || cpu.flags.ZF
+        Operation.JA -> !cpu.flags.CF && !cpu.flags.ZF
+        Operation.JB -> cpu.flags.CF
+        Operation.JAE -> !cpu.flags.CF
+        Operation.JBE -> cpu.flags.CF || cpu.flags.ZF
         else -> false
     }
 
-    /**
+    *//**
      * Pushes a 32-bit value onto the stack.
      * Decrements SP by 4 and writes the value to the new stack top.
      *
      * @param v The 32-bit value to push.
-     */
+     *//*
     private fun push(v: Long) { // Pushes a 32-bit value
         val currentSpOffset = cpu.readReg(Reg.ESP)
         val newSpOffset = (currentSpOffset - 4) and 0xFFFFFFFFL // SP is 32-bit offset
@@ -203,12 +204,12 @@ class Interpreter(
         mem.writeDWord(physicalStackAddress.toInt(), v.toUInt()) // Write Double Word (32-bit)
     }
 
-    /**
+    *//**
      * Pops a 32-bit value from the stack.
      * Reads the value from the current stack top and increments SP by 4.
      *
      * @return The 32-bit value popped from the stack.
-     */
+     *//*
     private fun pop(): Long { // Pops a 32-bit value
         val currentSpOffset = cpu.readReg(Reg.ESP)
         val ssBase = cpu.readReg(Reg.SS) // SS holds segment base
@@ -220,12 +221,12 @@ class Interpreter(
         return v.toLong()
     }
 
-    /**
+    *//**
      * Runs the program, executing instructions sequentially.
      *
      * @param maxSteps The maximum number of instructions to execute, to prevent infinite loops.
      * @throws error if an unimplemented opcode is encountered, or if execution limit is exceeded.
-     */
+     *//*
     fun run(maxSteps: Int = 100000) {
         var steps = 0
         while (cpu.IP >= 0 && cpu.IP < program.size) {
@@ -233,13 +234,13 @@ class Interpreter(
             val ins = program[cpu.IP.toInt()]
 
             when (ins.op) {
-                Op.NOP -> cpu.IP++
-                Op.MOV -> {
+                Operation.NOP -> cpu.IP++
+                Operation.MOV -> {
                     val v = readOp(ins.src ?: error("MOV missing src at line ${ins.line}"), ins.line)
                     writeOp(ins.dst ?: error("MOV missing dst at line ${ins.line}"), v, ins.line)
                     cpu.IP++
                 }
-                Op.ADD -> {
+                Operation.ADD -> {
                     val dst = ins.dst ?: error("ADD missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val b = readOp(ins.src ?: error("ADD missing src at line ${ins.line}"), ins.line)
@@ -248,7 +249,7 @@ class Interpreter(
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.IP++
                 }
-                Op.SUB -> {
+                Operation.SUB -> {
                     val dst = ins.dst ?: error("SUB missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val b = readOp(ins.src ?: error("SUB missing src at line ${ins.line}"), ins.line)
@@ -257,7 +258,7 @@ class Interpreter(
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.IP++
                 }
-                Op.INC -> {
+                Operation.INC -> {
                     val dst = ins.dst ?: error("INC missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val r = (a + 1)
@@ -265,7 +266,7 @@ class Interpreter(
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.IP++
                 }
-                Op.DEC -> {
+                Operation.DEC -> {
                     val dst = ins.dst ?: error("DEC missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val r = (a - 1)
@@ -273,16 +274,16 @@ class Interpreter(
                     writeOp(dst, r and 0xFFFFFFFFL, ins.line)
                     cpu.IP++
                 }
-                Op.CMP -> {
+                Operation.CMP -> {
                     val a = readOp(ins.dst ?: error("CMP missing left operand at line ${ins.line}"), ins.line)
                     val b = readOp(ins.src ?: error("CMP missing right operand at line ${ins.line}"), ins.line)
                     val r = (a - b)
                     setFlagsFromSub(a, b, r and 0xFFFFFFFFL)
                     cpu.IP++
                 }
-                Op.JMP, Op.JE, Op.JNE, Op.JG, Op.JL, Op.JGE, Op.JLE, Op.JA, Op.JB, Op.JAE, Op.JBE -> { // Added other Jcc ops
+                Operation.JMP, Operation.JE, Operation.JNE, Operation.JG, Operation.JL, Operation.JGE, Operation.JLE, Operation.JA, Operation.JB, Operation.JAE, Operation.JBE -> { // Added other Jcc ops
                     val targetOp = ins.dst ?: ins.src ?: error("Jump missing target operand at line ${ins.line}")
-                    val take = (ins.op == Op.JMP) || jccTaken(ins.op)
+                    val take = (ins.op == Operation.JMP) || jccTaken(ins.op)
                     if (take) {
                         val targetIdx = readOp(targetOp, ins.line)
                         if (targetIdx < 0 || targetIdx >= program.size) error("Jump target $targetIdx out of program range (0-${program.size-1}) at line ${ins.line}")
@@ -291,30 +292,30 @@ class Interpreter(
                         cpu.IP++
                     }
                 }
-                Op.PUSH -> {
+                Operation.PUSH -> {
                     val v = readOp(ins.dst ?: error("PUSH missing operand at line ${ins.line}"), ins.line)
                     push(v and 0xFFFFFFFFL) // Ensure value pushed is 32-bit
                     cpu.IP++
                 }
-                Op.POP -> {
+                Operation.POP -> {
                     val dst = ins.dst ?: error("POP missing destination at line ${ins.line}")
                     val v = pop() // pop already returns 32-bit
                     writeOp(dst, v, ins.line) // writeOp will handle 32-bit write
                     cpu.IP++
                 }
-                Op.CALL -> {
+                Operation.CALL -> {
                     val targetOp = ins.dst ?: error("CALL missing target at line ${ins.line}")
                     val target = readOp(targetOp, ins.line)
                     if (target < 0 || target >= program.size) error("Call target $target out of program range (0-${program.size-1}) at line ${ins.line}")
                     push((cpu.IP + 1) and 0xFFFFFFFFL) // Push return address (32-bit)
                     cpu.IP = target.toLong()
                 }
-                Op.RET -> {
+                Operation.RET -> {
                     val returnIp = pop() // pop returns 32-bit
                     if (returnIp < 0 || returnIp >= program.size) error("Return IP $returnIp out of program range (0-${program.size-1})")
                     cpu.IP = returnIp.toLong()
                 }
-                Op.INT -> {
+                Operation.INT -> {
                     val imm = readOp(ins.dst ?: error("INT requires an immediate at line ${ins.line}"), ins.line)
                     if ((imm and 0xFFL) == 0x20L) {
                         println("Program terminated via INT 20h (IP=${cpu.IP})")
@@ -323,7 +324,7 @@ class Interpreter(
                         error("Unsupported interrupt 0x${(imm and 0xFFFFFFFFL).toString(16)} at line ${ins.line}")
                     }
                 }
-                Op.AND -> {
+                Operation.AND -> {
                     val dst = ins.dst ?: error("AND missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val b = readOp(ins.src ?: error("AND missing src at line ${ins.line}"), ins.line)
@@ -345,7 +346,7 @@ class Interpreter(
                     cpu.flags.AF = false // Typically AF is undefined or cleared by logical ops
                     cpu.IP++
                 }
-                Op.OR -> {
+                Operation.OR -> {
                     val dst = ins.dst ?: error("OR missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val b = readOp(ins.src ?: error("OR missing src at line ${ins.line}"), ins.line)
@@ -365,7 +366,7 @@ class Interpreter(
                     cpu.flags.AF = false
                     cpu.IP++
                 }
-                Op.XOR -> {
+                Operation.XOR -> {
                     val dst = ins.dst ?: error("XOR missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val b = readOp(ins.src ?: error("XOR missing src at line ${ins.line}"), ins.line)
@@ -385,7 +386,7 @@ class Interpreter(
                     cpu.flags.AF = false
                     cpu.IP++
                 }
-                Op.NOT -> {
+                Operation.NOT -> {
                     val dst = ins.dst ?: error("NOT missing dst at line ${ins.line}")
                     val a = readOp(dst, ins.line)
                     val r = a.inv()
@@ -401,17 +402,17 @@ class Interpreter(
         }
     }
 
-    /**
+    *//**
      * Prints the current state of the CPU registers.
-     */
+     *//*
     fun printRegisters() {
         println(cpu.printRegisters())
     }
 
-    /**
+    *//**
      * Prints a section of the memory.
      * Currently shows the first 256 bytes.
-     */
+     *//*
     fun printMemory() { 
         println("Memory (showing first 256 bytes):")
         for (i in 0 until 256 step 16) {
@@ -428,4 +429,4 @@ class Interpreter(
             println()
         }
     }
-}
+}*/

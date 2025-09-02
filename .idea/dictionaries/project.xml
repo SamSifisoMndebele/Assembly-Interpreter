@@ -4,6 +4,7 @@
       <w>disp</w>
       <w>eflags</w>
       <w>lbrack</w>
+      <w>pusha</w>
       <w>rbrack</w>
     </words>
   </dictionary>

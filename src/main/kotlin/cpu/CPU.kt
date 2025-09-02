@@ -9,9 +9,7 @@ import model.Reg
 import model.Reg.*
 
 @OptIn(ExperimentalUnsignedTypes::class)
-class CPU(private val mem: Memory) {
-    private val symbolTable = mutableMapOf<String, UInt>()
-
+class CPU(private val mem: Memory, private val labels: Map<String, UInt> = emptyMap()) {
     private enum class Reg32 { EAX, EBX, ECX, EDX, ESI, EDI, EBP, ESP }
     private val regs = UIntArray(8)
     @Suppress("PrivatePropertyName")
@@ -20,11 +18,6 @@ class CPU(private val mem: Memory) {
     private var IP: UInt = 0u // Instruction Pointer
     private enum class SegReg { CS, DS, SS, ES, FS, GS }
     private val segRegs = UShortArray(6)
-
-    // Method to define a symbol (label) and its address
-    fun defineSymbol(label: String, address: UInt) {
-        symbolTable[label] = address
-    }
 
     private val Reg.reg32: Int
         get() = when (this) {
@@ -156,7 +149,7 @@ class CPU(private val mem: Memory) {
             }
             mem.readDWord(physicalAddress.toInt())
         }
-        is LabelOp -> symbolTable[op.name] ?: error("Undefined label: ${op.name}")
+        is LabelOp -> labels[op.name] ?: error("Undefined label: ${op.name}")
     }
     private fun write(op: Operand, value: UInt) {
         when (op) {
@@ -453,9 +446,9 @@ fun main() {
     val cpu = CPU(mem)
     println("Memory size: ${mem.size} bytes")
 
-    // Define some symbols
-    cpu.defineSymbol("MY_LABEL", 0x100u)
-    cpu.defineSymbol("LOOP_START", 0x200u)
+//    // Define some symbols
+//    cpu.defineSymbol("MY_LABEL", 0x100u)
+//    cpu.defineSymbol("LOOP_START", 0x200u)
 
     val program = listOf(
          Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EAX), MemOp(base = null, disp = 0x10u)), // MOV EAX, [DS:0x10]

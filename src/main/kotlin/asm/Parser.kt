@@ -148,10 +148,6 @@ class Parser(src: String, private val mem: Memory) {
         "DI"-> Reg.DI
         "BP"-> Reg.BP
         "SP"-> Reg.SP
-        "CS" -> Reg.CS
-        "DS" -> Reg.DS
-        "SS" -> Reg.SS
-        "ES" -> Reg.ES
         "EAX" -> Reg.EAX
         "EBX" -> Reg.EBX
         "ECX" -> Reg.ECX

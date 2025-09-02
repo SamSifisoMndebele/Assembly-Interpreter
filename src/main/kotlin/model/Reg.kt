@@ -56,14 +56,5 @@ enum class Reg {
     /** Extended Base Pointer register (32-bit) */
     EBP,
     /** Extended Stack Pointer register (32-bit) */
-    ESP,
-
-    /** Code Segment register (16-bit) */
-    CS,
-    /** Data Segment register (16-bit) */
-    DS,
-    /** Stack Segment register (16-bit) */
-    SS,
-    /** Extra Segment register (16-bit) */
-    ES
+    ESP
 }

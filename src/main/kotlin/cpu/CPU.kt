@@ -8,8 +8,20 @@ import model.Operand.*
 import model.Reg
 import model.Reg.*
 
+/**
+ * Simulates a CPU with a set of registers, memory, and an instruction pointer.
+ * It can execute a list of [Instruction] objects.
+ *
+ * @property mem The [Memory] instance that this CPU will operate on.
+ * @property labels A map of label names to their corresponding memory addresses (UInt). Defaults to an empty map.
+ * @property stackBytes The size of the stack in bytes. Defaults to 65,536 bytes (64KB).
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 class CPU(private val mem: Memory, private val labels: Map<String, UInt> = emptyMap(), private val stackBytes: Long = 65_536) {
+    /**
+     * Secondary constructor that allows specifying the stack size in kilobytes.
+     * @param stackKb The size of the stack in kilobytes.
+     */
     @Suppress("unused")
     constructor(memory: Memory, labels: Map<String, UInt> = emptyMap(), stackKb: Int) : this(memory, labels, stackKb * 1024L)
 
@@ -297,6 +309,12 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         return false
     }
 
+    /**
+     * Runs a program consisting of a list of [Instruction]s.
+     * @param program The list of instructions to execute.
+     * @param startAddress The initial value for the Instruction Pointer (EIP), indicating where to start execution. Defaults to 0.
+     * @param maxSteps The maximum number of instructions to execute before stopping. Defaults to 1000.
+     */
     fun run(program: List<Instruction>, startAddress: UInt = 0u, maxSteps: Int = 1000) {
         EIP = startAddress
         var steps = 0
@@ -325,11 +343,22 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
     }
 
     // === Debug helpers ===
+    /**
+     * Gets the value of a specified register.
+     * Handles 8-bit, 16-bit, and 32-bit registers.
+     * @param r The [Reg] enum representing the register to read.
+     * @return The value of the register as a [UInt].
+     */
     fun get(r: Reg): UInt = when (r) {
         AL,AH,BL,BH,CL,CH,DL,DH -> get8(r).toUInt()
         AX,BX,CX,DX,SI,DI,BP,SP -> get16(r).toUInt()
         else -> get32(r)
     }
+    /**
+     * Sets the value of a specified register.
+     * @param r The [Reg] enum representing the register to write to.
+     * @param v The [UInt] value to write to the register.
+     */
     fun set(r: Reg,v:UInt) { write(RegOp(r),v) }
 
     /**

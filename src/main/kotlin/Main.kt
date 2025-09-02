@@ -1,5 +1,5 @@
-import asm.Interpreter
 import asm.Parser
+import cpu.CPU
 import cpu.Memory
 import java.io.File
 import java.io.FileNotFoundException
@@ -20,9 +20,11 @@ fun main(args: Array<String>) {
         val mem = Memory()
         val parser = Parser(src, mem)
         val parsed = parser.parseProgram()
-        val interpreter = Interpreter(parsed.instructions, parsed.labels, mem)
-        interpreter.run()
-        interpreter.printRegisters()
+        val cpu = CPU(mem, parsed.labels)
+        cpu.run(parsed.instructions)
+
+        cpu.printRegisters()
+        mem.printMemory()
     } catch (e: Exception) {
         // Catching a generic Exception is broad, but without knowing the specific
         // exceptions thrown by the parser or interpreter, it's a safe starting point.

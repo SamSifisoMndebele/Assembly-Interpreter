@@ -30,7 +30,9 @@ sealed class Instruction(
     data class InstructionZero(
         val operation: Operation.OperationZero,
         override val line: Int = -1
-    ) : Instruction(line)
+    ) : Instruction(line) {
+        override fun toString(): String = "$line: $operation"
+    }
 
     /**
      * Represents an instruction with one operand (typically a destination or a source).
@@ -44,7 +46,9 @@ sealed class Instruction(
         val operation: Operation.OperationOne,
         val operand: Operand,
         override val line: Int = -1
-    ) : Instruction(line)
+    ) : Instruction(line) {
+        override fun toString(): String = "$line: $operation $operand"
+    }
 
     /**
      * Represents an instruction with two operands (typically a destination and a source).
@@ -60,5 +64,7 @@ sealed class Instruction(
         val dst: Operand,
         val src: Operand,
         override val line: Int = -1
-    ) : Instruction(line)
+    ) : Instruction(line) {
+        override fun toString(): String = "$line: $operation $dst, $src"
+    }
 }

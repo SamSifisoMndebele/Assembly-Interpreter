@@ -1,12 +1,40 @@
 <component name="ProjectDictionaryState">
   <dictionary name="project">
     <words>
+      <w>cmps</w>
+      <w>cmpsb</w>
+      <w>cmpsd</w>
+      <w>cmpsw</w>
       <w>disp</w>
       <w>eflags</w>
+      <w>idiv</w>
+      <w>imul</w>
+      <w>jnae</w>
+      <w>jnbe</w>
+      <w>jnge</w>
       <w>jnle</w>
       <w>lbrack</w>
+      <w>lods</w>
+      <w>lodsb</w>
+      <w>lodsd</w>
+      <w>lodsw</w>
+      <w>movb</w>
+      <w>movd</w>
+      <w>movs</w>
+      <w>movsb</w>
+      <w>movsd</w>
+      <w>movsw</w>
+      <w>movw</w>
       <w>pusha</w>
       <w>rbrack</w>
+      <w>scas</w>
+      <w>scasb</w>
+      <w>scasd</w>
+      <w>scasw</w>
+      <w>stosb</w>
+      <w>stosd</w>
+      <w>stosw</w>
+      <w>xchg</w>
     </words>
   </dictionary>
 </component>

@@ -1,5 +1,5 @@
 .data
-x DWORD 3Ah
+x DWORD 1234ABCDh
 y DWORD 7
 sum DWORD ?
 

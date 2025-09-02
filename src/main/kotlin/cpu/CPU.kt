@@ -331,7 +331,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
 
         while (EIP < program.size.toUInt() && steps < maxSteps) {
             if (EIP.toInt() >= program.size) {
-                println("Program execution stopped: IP (0x${EIP.toString(16)}) went out of program bounds (0x${program.size.toUInt().toString(16)}).")
+                println("Program execution stopped: EIP (0x${EIP.toString(16)}) went out of program bounds (0x${program.size.toUInt().toString(16)}).")
                 break
             }
             val instruction = program[EIP.toInt()]

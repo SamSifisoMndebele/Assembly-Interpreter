@@ -70,9 +70,7 @@ class Memory(mb: Float = 1f) {
      * @param addr The memory address to read from.
      * @return The 32-bit value read from memory.
      */
-    fun readDWord(addr: Int): UInt {
-        return mem[addr / 4]
-    }
+    fun readDWord(addr: Int): UInt = mem[addr / 4]
 
     /**
      * Writes a 32-bit value to the specified memory address in little-endian format.

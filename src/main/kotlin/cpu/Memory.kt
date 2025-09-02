@@ -40,9 +40,9 @@ class Memory(bytes: Long = 65_536) {
      * @param addr The memory address to read from.
      * @return The 8-bit value read from memory.
      */
-    fun readByte(addr: Int): UByte {
-        val index = addr / 4
-        val shift = (addr % 4) * 8
+    fun readByte(addr: Long): UByte {
+        val index = (addr / 4).toInt()
+        val shift = (addr % 4).toInt() * 8
         return ((mem[index].toInt() ushr shift) and 0xFF).toUByte()
     }
 
@@ -52,9 +52,9 @@ class Memory(bytes: Long = 65_536) {
      * @param addr The memory address to write to.
      * @param value The 8-bit value to write.
      */
-    fun writeByte(addr: Int, value: UByte) {
-        val index = addr / 4
-        val shift = (addr % 4) * 8
+    fun writeByte(addr: Long, value: UByte) {
+        val index = (addr / 4).toInt()
+        val shift = (addr % 4).toInt() * 8
         val mask = (0xFFu shl shift).inv()
         mem[index] = (mem[index] and mask) or (value.toUInt() shl shift)
     }
@@ -65,7 +65,7 @@ class Memory(bytes: Long = 65_536) {
      * @param addr The memory address to read from.
      * @return The 16-bit value read from memory.
      */
-    fun readWord(addr: Int): UShort {
+    fun readWord(addr: Long): UShort {
         val lo = readByte(addr).toUInt()
         val hi = readByte(addr + 1).toUInt()
         return ((hi shl 8) or lo).toUShort()
@@ -77,7 +77,7 @@ class Memory(bytes: Long = 65_536) {
      * @param addr The memory address to write to.
      * @param value The 16-bit value to write.
      */
-    fun writeWord(addr: Int, value: UShort) {
+    fun writeWord(addr: Long, value: UShort) {
         writeByte(addr, (value and 0xFFu).toUByte())
         writeByte(addr + 1, ((value.toInt() ushr 8) and 0xFF).toUByte())
     }
@@ -88,7 +88,7 @@ class Memory(bytes: Long = 65_536) {
      * @param addr The memory address to read from.
      * @return The 32-bit value read from memory.
      */
-    fun readDWord(addr: Int): UInt = mem[addr / 4]
+    fun readDWord(addr: Long): UInt = mem[(addr / 4).toInt()]
 
     /**
      * Writes a 32-bit value to the specified memory address in little-endian format.
@@ -96,8 +96,8 @@ class Memory(bytes: Long = 65_536) {
      * @param addr The memory address to write to.
      * @param value The 32-bit value to write.
      */
-    fun writeDWord(addr: Int, value: UInt) {
-        mem[addr / 4] = value
+    fun writeDWord(addr: Long, value: UInt) {
+        mem[(addr / 4).toInt()] = value
     }
 
     /**
@@ -112,7 +112,7 @@ class Memory(bytes: Long = 65_536) {
         val actualRows = rows.coerceAtMost(((bytes + 15) / 16).toInt().coerceAtLeast(1))
         val bold = BOLD
         for (i in 0 until actualRows) {
-            val baseAddr = i * 16
+            val baseAddr = i * 16L
             print("$YELLOW%08X$RESET   | ".format(baseAddr))
             for (j in 0 until 16) {
                 val addr = baseAddr + j

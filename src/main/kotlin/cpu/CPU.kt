@@ -335,7 +335,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                 println("Program execution stopped: IP (0x${EIP.toString(16)}) went out of program bounds (0x${program.size.toUInt().toString(16)}).")
                 break
             }
-            val instruction = program[instructionAddress.toInt()]
+            val instruction = program[EIP.toInt()]
 
             val ipModifiedByInstruction = execute(instruction)
 

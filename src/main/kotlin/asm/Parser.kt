@@ -229,6 +229,40 @@ class Parser(src: String, private val mem: Memory) {
         val labels: MutableMap<String, UInt> // label -> instruction index (UInt)
     )
 
+    /**
+     * Parses the entire assembly program.
+     *
+     * This function iterates through the tokens provided by the lexer,
+     * processing each line according to whether it's in the `.code` or `.data` section.
+     *
+     * In the `.code` section:
+     * - It identifies labels and stores their corresponding instruction index.
+     * - It parses instructions and their operands, creating [Instruction] objects.
+     *
+     * In the `.data` section:
+     * - It identifies data symbols and stores their memory addresses (relative to `DATA_SEGMENT_BASE`).
+     * - It parses data directives (like `DB`, `DW`, `DD`) and writes the specified values
+     *   into the [mem] (Memory) instance at the calculated physical address.
+     *   The `currentDataOffset` tracks the current position within the data segment.
+     *
+     * The function handles:
+     * - End of file (EOF) to terminate parsing.
+     * - Newlines to advance to the next line.
+     * - Label definitions (e.g., `myLabel:`).
+     * - Section directives (`.data`, `.code`).
+     * - Instructions with varying numbers of operands (zero, one, or two).
+     * - Data definitions with type specifiers and values.
+     * - Consumption of comments or any remaining tokens on a line after processing
+     *   the main part (label, directive, or instruction).
+     *
+     * Errors are thrown for syntax issues, unknown opcodes, incorrect operand counts,
+     * or unsupported data directives.
+     *
+     * @return A [ParsedProgram] object containing the list of parsed [Instruction]s
+     *         and a map of label names to their instruction indices.
+     * @throws IllegalStateException if parsing errors occur (e.g., unexpected token,
+     *         unknown opcode, incorrect operand count).
+     */
     fun parseProgram(): ParsedProgram {
         val instructions = mutableListOf<Instruction>()
         val labels = mutableMapOf<String, UInt>() // label name -> instruction index (UInt)

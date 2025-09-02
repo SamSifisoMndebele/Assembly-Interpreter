@@ -4,9 +4,8 @@ package cpu
  * Represents the memory of the CPU. This implementation focuses on byte-addressable memory
  * with support for reading and writing 8-bit, 16-bit, and 32-bit values in little-endian format.
  *
- * @property bytes The size of the memory in bytes. Defaults to 1MB (1,048,576 bytes).
- *                   The minimum configurable size is 32 bytes, and the maximum is 8GB (8,589,934,592 bytes).
- *                   A secondary constructor is available to initialize memory using kilobytes (KB).
+ * @property bytes The size of the memory in bytes. Must be between 32 bytes and 8GB (8,589,934,592 bytes).
+ *                 Defaults to 1MB (1,048,576 bytes).
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class Memory(bytes: Long = 1_048_576) {
@@ -15,6 +14,11 @@ class Memory(bytes: Long = 1_048_576) {
             "Memory size must be between 32 bytes and 8GB"
         }
     }
+    /**
+     * Secondary constructor to initialize memory with a size in kilobytes.
+     *
+     * @param kb The size of the memory in kilobytes. Must be between 1KB and 8GB (8,388,608 kilobytes).
+     */
     @Suppress("unused")
     constructor(kb: Int) : this(kb * 1024L)
 

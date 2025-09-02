@@ -33,14 +33,10 @@ sealed interface Operation {
         data object JNZ : OperationOne
 //        data object JE : OperationOne
 //        data object JNE : OperationOne
-//        data object JG : OperationOne
-//        data object JNLE : OperationOne
-//        data object JL : OperationOne
-//        data object JNGE : OperationOne
-//        data object JA : OperationOne
-//        data object JNBE : OperationOne
-//        data object JB : OperationOne
-//        data object JNAE : OperationOne
+        data object JG : OperationOne // JNLE
+//        data object JL : OperationOne // JNGE
+//        data object JA : OperationOne // JNBE
+//        data object JB : OperationOne // JNAE
 //        data object JGE : OperationOne
 //        data object JNL : OperationOne
 //        data object JLE : OperationOne
@@ -69,10 +65,10 @@ sealed interface Operation {
         data object ADD : OperationTwo
         data object SUB : OperationTwo
         data object XCHG : OperationTwo
+        data object CMP : OperationTwo
 //        data object MOVS : OperationZero
 //        data object MOVZ : OperationZero
 //        data object LEA : OperationTwo
-//        data object CMP : OperationTwo
 //        data object AND : OperationTwo
 //        data object OR : OperationTwo
 //        data object XOR : OperationTwo

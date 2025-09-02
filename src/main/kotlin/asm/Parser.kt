@@ -48,7 +48,8 @@ class Parser(src: String, private val mem: Memory) {
                 "CALL" -> Operation.OperationOne.CALL
                 "RET" -> Operation.OperationZero.RET
                 "NOP" -> Operation.OperationZero.NOP
-//                "CMP" -> Operation.OperationTwo.CMP
+                "CMP" -> Operation.OperationTwo.CMP
+                "JG", "JNLE" -> Operation.OperationOne.JG
 //                "AND" -> Operation.OperationTwo.AND
 //                "OR" -> Operation.OperationTwo.OR
 //                "XOR" -> Operation.OperationTwo.XOR
@@ -62,7 +63,6 @@ class Parser(src: String, private val mem: Memory) {
 //                "IDIV" -> Operation.OperationOne.IDIV
 //                "JE", "JZ" -> Operation.OperationOne.JE
 //                "JNE", "JNZ" -> Operation.OperationOne.JNE
-//                "JG", "JNLE" -> Operation.OperationOne.JG
 //                "JL", "JNGE" -> Operation.OperationOne.JL
 //                "JGE", "JNL" -> Operation.OperationOne.JGE
 //                "JLE", "JNG" -> Operation.OperationOne.JLE
@@ -341,10 +341,24 @@ class Parser(src: String, private val mem: Memory) {
                     } else if (currentSection == Section.DATA) {
                         val symbolName = id 
                         val typeTok = eat(Token.Kind.ID) 
-                        val valTok = if (look.kind == Token.Kind.NUMBER || look.kind == Token.Kind.ID) look else null // Allow ID for char literal like 'A'
-                        if (valTok != null) eat(valTok.kind) // Consume the token
 
-                        val value = if (valTok != null) parseImmediate(valTok.text) else 0u // Returns UInt
+                        var value: UInt
+                        // Check for '?' for uninitialized data.
+                        // Assuming '?' is tokenized as Token.Kind.ID.
+                        // If Lexer makes '?' a distinct token kind (e.g. Token.Kind.QUESTION),
+                        // this check should be: if (look.kind == Token.Kind.QUESTION)
+                        if (look.kind == Token.Kind.ID && look.text == "?") {
+                            eat(Token.Kind.ID) // Consume '?'
+                            value = 0u
+                        } else if (look.kind == Token.Kind.NUMBER || look.kind == Token.Kind.ID) {
+                            // Token is an actual number, a character literal ('A'), or a label.
+                            val valueToken = eat(look.kind) // Consume the token for the value
+                            value = parseImmediate(valueToken.text)
+                        } else {
+                            // No explicit value provided (e.g., "myVar DB" followed by newline or comment).
+                            // Default to 0, which is standard for uninitialized data or BSS-like behavior.
+                            value = 0u
+                        }
                         
                         symbolTable[symbolName] = DATA_SEGMENT_BASE + currentDataOffset
 

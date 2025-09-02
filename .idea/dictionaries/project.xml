@@ -3,6 +3,7 @@
     <words>
       <w>disp</w>
       <w>eflags</w>
+      <w>jnle</w>
       <w>lbrack</w>
       <w>pusha</w>
       <w>rbrack</w>

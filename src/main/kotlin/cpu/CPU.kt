@@ -14,10 +14,10 @@ import model.Reg.*
  *
  * @property mem The [Memory] instance that this CPU will operate on.
  * @property labels A map of label names to their corresponding memory addresses (UInt). Defaults to an empty map.
- * @property stackBytes The size of the stack in bytes. Defaults to 65,536 bytes (64KB).
+ * @property stackBytes The size of the stack in bytes. Defaults to 8,192 bytes (8KB).
  */
 @OptIn(ExperimentalUnsignedTypes::class)
-class CPU(private val mem: Memory, private val labels: Map<String, UInt> = emptyMap(), private val stackBytes: Long = 65_536) {
+class CPU(private val mem: Memory, private val labels: Map<String, UInt> = emptyMap(), private val stackBytes: Long = 8_192) {
     /**
      * Secondary constructor that allows specifying the stack size in kilobytes.
      * @param stackKb The size of the stack in kilobytes.
@@ -166,8 +166,6 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         }
     }
 
-//    private var initialEspValue: UInt = 0u
-
     init {
         regs.fill(0u)
 
@@ -274,6 +272,12 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                             return true
                         }
                     }
+                    Operation.OperationOne.JG -> { // Jump if Greater (SF=OF and ZF=0)
+                        if (getFlag(EFlags.SF) == getFlag(EFlags.OF) && !getFlag(EFlags.ZF)) {
+                            EIP = read(operand)
+                            return true
+                        }
+                    }
                 }
             }
             is Instruction.InstructionTwo -> {
@@ -302,6 +306,12 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                         val val2 = read(src)
                         write(dst, val2)
                         write(src, val1)
+                    }
+                    Operation.OperationTwo.CMP -> {
+                        val a = read(dst)
+                        val b = read(src)
+                        val res = a - b
+                        subFlags(a, b, res)
                     }
                 }
             }
@@ -361,21 +371,29 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
      */
     fun set(r: Reg,v:UInt) { write(RegOp(r),v) }
 
+    companion object {
+        const val RESET = "\u001B[0m"
+        const val RED = "\u001B[31m"
+        const val GREEN = "\u001B[32m"
+        const val YELLOW = "\u001B[33m"
+        const val BLUE = "\u001B[34m"
+    }
+
     /**
      * Generates a string representation of the current state of the CPU registers and flags.
      */
     fun printRegisters() {
-        println()
-        println(" EAX=%08X | AX=%04X | AH=%02X, AL=%02X".format(get32(EAX).toInt(), get16(AX).toInt(), get8(AH).toInt(), get8(AL).toInt()))
-        println(" EBX=%08X | BX=%04X | BH=%02X, BL=%02X".format(get32(EBX).toInt(), get16(BX).toInt(), get8(BH).toInt(), get8(BL).toInt()))
-        println(" ECX=%08X | CX=%04X | CH=%02X, CL=%02X".format(get32(ECX).toInt(), get16(CX).toInt(), get8(CH).toInt(), get8(CL).toInt()))
-        println(" EDX=%08X | DX=%04X | DH=%02X, DL=%02X".format(get32(EDX).toInt(), get16(DX).toInt(), get8(DH).toInt(), get8(DL).toInt()))
-        println(" ESI=%08X | SI=%04X".format(get32(ESI).toInt(), get16(SI).toInt()))
-        println(" EDI=%08X | DI=%04X".format(get32(EDI).toInt(), get16(DI).toInt()))
-        println(" EBP=%08X | BP=%04X".format(get32(EBP).toInt(), get16(BP).toInt()))
-        println(" ESP=%08X | SP=%04X".format(get32(ESP).toInt(), get16(SP).toInt()))
-        println(" EIP=%08X".format(EIP.toInt()))
-        println(" EFL=%08X | CF=%d PF=%d AF=%d ZF=%d SF=%d OF=%d".format(EFLAGS.toInt(), getFlag(EFlags.CF).int, getFlag(EFlags.PF).int, getFlag(EFlags.AF).int, getFlag(EFlags.ZF).int, getFlag(EFlags.SF).int, getFlag(EFlags.OF).int))
+        println("${BLUE}Registers Dump:${RESET}")
+        println(" ${BLUE}EAX=${RESET}${GREEN}%08X${RESET} | ${BLUE}AX=${RESET}${GREEN}%04X${RESET} | ${BLUE}AH=${RESET}${GREEN}%02X${RESET}, ${BLUE}AL=${RESET}${GREEN}%02X${RESET}".format(get32(EAX).toInt(), get16(AX).toInt(), get8(AH).toInt(), get8(AL).toInt()))
+        println(" ${BLUE}EBX=${RESET}${GREEN}%08X${RESET} | ${BLUE}BX=${RESET}${GREEN}%04X${RESET} | ${BLUE}BH=${RESET}${GREEN}%02X${RESET}, ${BLUE}BL=${RESET}${GREEN}%02X${RESET}".format(get32(EBX).toInt(), get16(BX).toInt(), get8(BH).toInt(), get8(BL).toInt()))
+        println(" ${BLUE}ECX=${RESET}${GREEN}%08X${RESET} | ${BLUE}CX=${RESET}${GREEN}%04X${RESET} | ${BLUE}CH=${RESET}${GREEN}%02X${RESET}, ${BLUE}CL=${RESET}${GREEN}%02X${RESET}".format(get32(ECX).toInt(), get16(CX).toInt(), get8(CH).toInt(), get8(CL).toInt()))
+        println(" ${BLUE}EDX=${RESET}${GREEN}%08X${RESET} | ${BLUE}DX=${RESET}${GREEN}%04X${RESET} | ${BLUE}DH=${RESET}${GREEN}%02X${RESET}, ${BLUE}DL=${RESET}${GREEN}%02X${RESET}".format(get32(EDX).toInt(), get16(DX).toInt(), get8(DH).toInt(), get8(DL).toInt()))
+        println(" ${BLUE}ESI=${RESET}${GREEN}%08X${RESET} | ${BLUE}SI=${RESET}${GREEN}%04X${RESET}".format(get32(ESI).toInt(), get16(SI).toInt()))
+        println(" ${BLUE}EDI=${RESET}${GREEN}%08X${RESET} | ${BLUE}DI=${RESET}${GREEN}%04X${RESET}".format(get32(EDI).toInt(), get16(DI).toInt()))
+        println(" ${BLUE}EBP=${RESET}${GREEN}%08X${RESET} | ${BLUE}BP=${RESET}${GREEN}%04X${RESET}".format(get32(EBP).toInt(), get16(BP).toInt()))
+        println(" ${BLUE}ESP=${RESET}${GREEN}%08X${RESET} | ${BLUE}SP=${RESET}${GREEN}%04X${RESET}".format(get32(ESP).toInt(), get16(SP).toInt()))
+        println(" ${BLUE}EIP=${RESET}${GREEN}%08X${RESET}".format(EIP.toInt()))
+        println(" ${BLUE}EFL=${RESET}${GREEN}%08X${RESET} | ${YELLOW}CF=${RESET}${GREEN}%d${RESET} ${YELLOW}PF=${RESET}${GREEN}%d${RESET} ${YELLOW}AF=${RESET}${GREEN}%d${RESET} ${YELLOW}ZF=${RESET}${GREEN}%d${RESET} ${YELLOW}SF=${RESET}${GREEN}%d${RESET} ${YELLOW}OF=${RESET}${GREEN}%d${RESET}".format(EFLAGS.toInt(), getFlag(EFlags.CF).int, getFlag(EFlags.PF).int, getFlag(EFlags.AF).int, getFlag(EFlags.ZF).int, getFlag(EFlags.SF).int, getFlag(EFlags.OF).int))
         println()
     }
     private val Boolean.int get() = if (this) 1 else 0

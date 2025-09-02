@@ -142,7 +142,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
             if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) {
                 error("Memory read out of bounds: Addr=0x${address.toString(16)}, MemSize=0x${mem.bytes.toString(16)}")
             }
-            mem.readDWord(address.toInt())
+            mem.readDWord(address.toLong())
         }
         is LabelOp -> labels[op.name] ?: error("Undefined label: ${op.name}")
     }
@@ -160,7 +160,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                 if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) {
                     error("Memory write out of bounds: Addr=0x${address.toString(16)}, MemSize=0x${mem.bytes.toString(16)}")
                 }
-                mem.writeDWord(address.toInt(), value)
+                mem.writeDWord(address.toLong(), value)
             }
             else -> error("Cannot write to $op")
         }

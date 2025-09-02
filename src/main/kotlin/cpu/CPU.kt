@@ -77,7 +77,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         require(esp < mem.bytes.toUInt()) { // Check lower bound for stack growing down
             "Stack physical write out of bounds: Addr=0x${esp.toString(16)}, MemSize=0x${mem.bytes.toString(16)}"
         }
-        mem.writeDWord(esp.toInt(), value)
+        mem.writeDWord(esp.toLong(), value)
     }
 
     private fun pop(): UInt {

@@ -320,16 +320,16 @@ class Parser(src: String, private val mem: Memory) {
                         when (typeTok.text.uppercase()) {
                             "DB", "BYTE" -> {
                                 if (value < -128 || value > 255) error("Line ${typeTok.line}: Value out of 8-bit range for DB/BYTE: $value")
-                                mem.writeByte(physicalAddress, value.toShort())
+                                mem.writeByte(physicalAddress.toInt(), value.toUByte())
                                 currentDataOffset += 1
                             }
                             "DW", "WORD" -> {
                                 if (value < -32768 || value > 65535) error("Line ${typeTok.line}: Value out of 16-bit range for DW/WORD: $value")
-                                mem.writeWord(physicalAddress, value.toInt())
+                                mem.writeWord(physicalAddress.toInt(), value.toUShort())
                                 currentDataOffset += 2
                             }
                             "DD", "DWORD", "LONG" -> {
-                                mem.writeDWord(physicalAddress, value)
+                                mem.writeDWord(physicalAddress.toInt(), value.toUInt())
                                 currentDataOffset += 4
                             }
                             else -> error("Line ${typeTok.line}: Unsupported data directive '${typeTok.text}'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")

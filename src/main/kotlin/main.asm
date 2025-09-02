@@ -1,5 +1,5 @@
 .data
-x DWORD 30Ah
+x DWORD 3Ah
 y DWORD 7
 sum DWORD ?
 

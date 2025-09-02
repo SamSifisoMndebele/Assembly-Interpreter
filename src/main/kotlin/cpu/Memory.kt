@@ -1,15 +1,20 @@
 package cpu
 
 /**
- * Represents the memory of the CPU.
+ * Represents the memory of the CPU. This implementation focuses on byte-addressable memory
+ * with support for reading and writing 8-bit, 16-bit, and 32-bit values in little-endian format.
  *
- * @property memSize The size of the memory in kilobytes. Defaults to 1MB.
- *                   Supports up to 4GB for 32-bit architectures.
+ * @property mb The size of the memory in megabytes. Defaults to 1MB.
+ *                   The minimum configurable size is 32 bytes, and the maximum is 8GB.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
-class Memory(memSize: Int = 1024) {
-    private val mem = UShortArray(memSize * 1024)
-    val size = mem.size.toLong()
+class Memory(mb: Float = 1f) {
+    init {
+        require(mb * 32_768 >= 1 && mb <= 8_192) { "Memory size must be between 32 bytes and 8GB" }
+    }
+
+    private val mem = UIntArray((mb * 262_144).toInt()) // each element is 32-bit (4 bytes)
+    val size = mem.size.toLong() * 4 // total memory in bytes
 
     /**
      * Reads an 8-bit value from the specified memory address.
@@ -18,11 +23,9 @@ class Memory(memSize: Int = 1024) {
      * @return The 8-bit value read from memory.
      */
     fun readByte(addr: Int): UByte {
-        val word = mem[addr / 2].toInt()
-        return if ((addr and 1) == 0)
-            (word and 0xFF).toUByte() // low byte
-        else
-            (word ushr 8).toUByte() // high byte, shifted down
+        val index = addr / 4
+        val shift = (addr % 4) * 8
+        return ((mem[index].toInt() ushr shift) and 0xFF).toUByte()
     }
 
     /**
@@ -32,12 +35,10 @@ class Memory(memSize: Int = 1024) {
      * @param value The 8-bit value to write.
      */
     fun writeByte(addr: Int, value: UByte) {
-        val word = mem[addr / 2].toInt()
-        mem[addr / 2] =
-            if ((addr and 1) == 0) // even address → low byte
-                ((word and 0xFF00) or value.toInt()).toUShort()
-            else // odd address → high byte
-                ((word and 0xFF) or (value.toInt() shl 8)).toUShort()
+        val index = addr / 4
+        val shift = (addr % 4) * 8
+        val mask = (0xFFu shl shift).inv()
+        mem[index] = (mem[index] and mask) or (value.toUInt() shl shift)
     }
 
     /**
@@ -46,7 +47,11 @@ class Memory(memSize: Int = 1024) {
      * @param addr The memory address to read from.
      * @return The 16-bit value read from memory.
      */
-    fun readWord(addr: Int): UShort = mem[addr / 2]
+    fun readWord(addr: Int): UShort {
+        val lo = readByte(addr).toUInt()
+        val hi = readByte(addr + 1).toUInt()
+        return ((hi shl 8) or lo).toUShort()
+    }
 
     /**
      * Writes a 16-bit value to the specified memory address in little-endian format.
@@ -55,7 +60,8 @@ class Memory(memSize: Int = 1024) {
      * @param value The 16-bit value to write.
      */
     fun writeWord(addr: Int, value: UShort) {
-        mem[addr / 2] = value
+        writeByte(addr, (value and 0xFFu).toUByte())
+        writeByte(addr + 1, ((value.toInt() ushr 8) and 0xFF).toUByte())
     }
 
     /**
@@ -65,9 +71,7 @@ class Memory(memSize: Int = 1024) {
      * @return The 32-bit value read from memory.
      */
     fun readDWord(addr: Int): UInt {
-        val lo = mem[addr / 2].toInt()
-        val hi = mem[addr / 2 + 1].toInt()
-        return (lo or (hi shl 16)).toUInt() // Little-endian
+        return mem[addr / 4]
     }
 
     /**
@@ -77,7 +81,44 @@ class Memory(memSize: Int = 1024) {
      * @param value The 32-bit value to write.
      */
     fun writeDWord(addr: Int, value: UInt) {
-        mem[addr / 2] = value.toUShort()
-        mem[addr / 2 + 1] = (value.toInt() ushr 16).toUShort()
+        mem[addr / 4] = value
     }
+
+    /**
+     * Prints the memory content in a human-readable format.
+     *
+     * @param rows The number of rows to print. Defaults to the number of rows available in memory.
+     */
+    fun printMemory(rows: Int = (size / 16).toInt().coerceAtLeast(1)) {
+        println("Memory Dump:")
+        println("Address    | " + (0 until 16).joinToString(" ") { "%02X".format(it) })
+        println("-----------|-" + "-".repeat(47))
+        val actualRows = rows.coerceAtMost((size / 16).toInt().coerceAtLeast(1))
+        for (i in 0 until actualRows) {
+            val baseAddr = i * 16
+            print("%08X   | ".format(baseAddr))
+            for (j in 0 until 16) {
+                val addr = baseAddr + j
+                if (addr < size) print("%02X ".format(readByte(addr).toShort())) else print("   ")
+            }
+            println()
+        }
+    }
+}
+
+// Testing
+fun main() {
+    val memory = Memory(32f / 1024 / 1024)
+
+    // Example of writing and reading memory
+    memory.writeByte(0x00, 0xABu)
+    memory.writeByte(0x01, 0xCDu)
+    memory.writeWord(0x02, 0xEF01u)
+    memory.writeDWord(0x04, 0x12345678u)
+
+    memory.printMemory()
+
+    println("Byte at 00: %02X".format(memory.readByte(0x00).toShort()))
+    println("Word at 02: %04X".format(memory.readWord(0x02).toShort()))
+    println("DWord at 04: %08X".format(memory.readDWord(0x04).toShort()))
 }

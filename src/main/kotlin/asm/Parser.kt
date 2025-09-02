@@ -29,11 +29,9 @@ class Parser(src: String, private val mem: Memory) {
     private var look: Token = lex.nextToken()
     private var currentSection = Section.CODE
     private val symbolTable = mutableMapOf<String, UInt>() // symbol -> offset within data segment
-    private var currentDataOffset = 0u // Current offset within the data segment (UInt)
+    private var dataOffset = 0L // Current offset within the data segment
     
     companion object {
-        private const val DATA_SEGMENT_BASE = 0x1000u // Data segment starts at 4KB (UInt)
-
         private val String.asOperation: Operation?
             get() =  when (this.uppercase()) {
                 "MOV" -> Operation.OperationTwo.MOV
@@ -119,14 +117,8 @@ class Parser(src: String, private val mem: Memory) {
             // Direct toUInt() would fail for negative strings.
             else -> try {
                 t.toLong().toUInt()
-            } catch (e: NumberFormatException) {
-                // If toLong fails, try toUInt for positive numbers that might be too large for Long but fit UInt.
-                // This is less common for typical assembly immediates but provides robustness.
-                try {
-                    t.toUInt()
-                } catch (e2: NumberFormatException) {
-                    throw NumberFormatException("Invalid number format: $text -> $t")
-                }
+            } catch (_: NumberFormatException) {
+                throw NumberFormatException("Invalid number format: $text -> $t")
             }
         }
     }
@@ -171,7 +163,7 @@ class Parser(src: String, private val mem: Memory) {
                 return try {
                     val immediateValue = parseImmediate(tokenText) // returns UInt
                     Operand.ImmOp(immediateValue) // ImmOp expects UInt
-                } catch (e: NumberFormatException) {
+                } catch (_: NumberFormatException) {
                     Operand.LabelOp(tokenText)
                 }
             }
@@ -195,7 +187,7 @@ class Parser(src: String, private val mem: Memory) {
                             disp = symbolOffset
                             if (tryEat(Token.Kind.PLUS) != null) {
                                 val immediateOffset = parseImmediate(eat(Token.Kind.NUMBER).text) // UInt
-                                disp = (disp ?: 0u) + immediateOffset // disp becomes UInt
+                                disp = disp + immediateOffset // disp becomes UInt
                             }
                         }
                     }
@@ -279,7 +271,7 @@ class Parser(src: String, private val mem: Memory) {
                         if (currentSection == Section.CODE) {
                             labels[id] = instructions.size.toUInt()
                         } else if (currentSection == Section.DATA) {
-                            symbolTable[id] = DATA_SEGMENT_BASE + currentDataOffset
+                            symbolTable[id] = dataOffset.toUInt()
                         }
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
@@ -290,7 +282,7 @@ class Parser(src: String, private val mem: Memory) {
                         when(id.lowercase()) {
                             ".data" -> {
                                 currentSection = Section.DATA
-                                currentDataOffset = 0u 
+                                dataOffset = 0
                             }
                             ".code" -> currentSection = Section.CODE
                         }
@@ -324,18 +316,17 @@ class Parser(src: String, private val mem: Memory) {
 
                         when (op) {
                             is Operation.OperationZero -> {
-                                if (dst != null || src != null) error("Line ${idTok.line}: Opcode '$id' expects 0 operands, got ${listOfNotNull(dst,src).size}")
+                                if (dst != null) error("Line ${idTok.line}: Opcode '$id' expects 0 operands, got ${listOfNotNull(dst,src).size}")
                                 instructions.add(Instruction.InstructionZero(op, idTok.line))
                             }
                             is Operation.OperationOne -> {
                                 if (dst == null || src != null) error("Line ${idTok.line}: Opcode '$id' expects 1 operand, got ${listOfNotNull(dst,src).size}")
-                                instructions.add(Instruction.InstructionOne(op, dst!!, idTok.line))
+                                instructions.add(Instruction.InstructionOne(op, dst, idTok.line))
                             }
                             is Operation.OperationTwo -> {
-                                if (dst == null || src == null) error("Line ${idTok.line}: Opcode '$id' expects 2 operands, got ${listOfNotNull(dst,src).size}")
-                                instructions.add(Instruction.InstructionTwo(op, dst!!, src!!, idTok.line))
+                                if (dst == null || src == null) error("Line ${idTok.line}: Opcode '$id' expects 2 operands, got ${listOfNotNull(dst, null).size}")
+                                instructions.add(Instruction.InstructionTwo(op, dst, src, idTok.line))
                             }
-                            // else -> error("Line ${idTok.line}: Unhandled Operation type for opcode '$id'") // Should not happen if parseOp is correct
                         }
 
                     } else if (currentSection == Section.DATA) {
@@ -360,25 +351,23 @@ class Parser(src: String, private val mem: Memory) {
                             value = 0u
                         }
                         
-                        symbolTable[symbolName] = DATA_SEGMENT_BASE + currentDataOffset
-
-                        val physicalAddress = (DATA_SEGMENT_BASE + currentDataOffset) 
+                        symbolTable[symbolName] = dataOffset.toUInt()
 
                         when (typeTok.text.uppercase()) {
                             "DB", "BYTE" -> {
                                 if (value > UByte.MAX_VALUE) error("Line ${typeTok.line}: Value $value out of 8-bit unsigned range for DB/BYTE")
-                                mem.writeByte(physicalAddress.toInt(), value.toUByte())
-                                currentDataOffset += 1u
+                                mem.writeByte(dataOffset, value.toUByte())
+                                dataOffset += 1
                             }
                             "DW", "WORD" -> {
                                 if (value > UShort.MAX_VALUE) error("Line ${typeTok.line}: Value $value out of 16-bit unsigned range for DW/WORD")
-                                mem.writeWord(physicalAddress.toInt(), value.toUShort())
-                                currentDataOffset += 2u
+                                mem.writeWord(dataOffset, value.toUShort())
+                                dataOffset += 2
                             }
                             "DD", "DWORD", "LONG" -> {
                                 // Value is already UInt, which matches writeDWord expectation
-                                mem.writeDWord(physicalAddress.toInt(), value)
-                                currentDataOffset += 4u
+                                mem.writeDWord(dataOffset, value)
+                                dataOffset += 4
                             }
                             else -> error("Line ${typeTok.line}: Unsupported data directive '${typeTok.text}'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")
                         }

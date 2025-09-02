@@ -19,7 +19,7 @@ import model.*
  * 2. **Instruction Generation:** Parses instructions, resolving symbols to their addresses/offsets.
  *
  * **Memory Layout:**
- * - Data segment starts at a defined base address (e.g., `0x1000`).
+ * - Data segment starts at a defined base address (e.g., `0x1000u`).
  *
  * @property mem The [Memory] instance where data will be stored.
  * @param src The assembly source code as a string.
@@ -28,37 +28,70 @@ class Parser(src: String, private val mem: Memory) {
     private val lex = Lexer(src)
     private var look: Token = lex.nextToken()
     private var currentSection = Section.CODE
-    private val dataSymbols = mutableMapOf<String, Long>() // symbol -> offset within data segment
-    private var currentDataOffset = 0L // Current offset within the data segment
+    private val symbolTable = mutableMapOf<String, UInt>() // symbol -> offset within data segment
+    private var currentDataOffset = 0u // Current offset within the data segment (UInt)
     
     companion object {
-        private const val DATA_SEGMENT_BASE = 0x1000 // Data segment starts at 4KB
+        private const val DATA_SEGMENT_BASE = 0x1000u // Data segment starts at 4KB (UInt)
 
-        private val opStringToEnumMap: Map<String, Op> = mapOf(
-            "MOV" to Op.MOV, "ADD" to Op.ADD, "SUB" to Op.SUB, "INC" to Op.INC, "DEC" to Op.DEC,
-            "CMP" to Op.CMP, "JMP" to Op.JMP, "JE" to Op.JE, "JNE" to Op.JNE, "JG" to Op.JG,
-            "JL" to Op.JL, "JGE" to Op.JGE, "JLE" to Op.JLE,
-            "JA" to Op.JA, "JAE" to Op.JAE, "JB" to Op.JB, "JBE" to Op.JBE, // Added Unsigned Jumps
-            "PUSH" to Op.PUSH, "POP" to Op.POP,
-            "CALL" to Op.CALL, "RET" to Op.RET, "INT" to Op.INT, "NOP" to Op.NOP,
-            "XCHG" to Op.XCHG, "LEA" to Op.LEA, "MUL" to Op.MUL, "IMUL" to Op.IMUL,
-            "DIV" to Op.DIV, "IDIV" to Op.IDIV, "NEG" to Op.NEG, "AND" to Op.AND,
-            "OR" to Op.OR, "XOR" to Op.XOR, "NOT" to Op.NOT, "TEST" to Op.TEST,
-            "SHL" to Op.SHL, "SAL" to Op.SAL,
-            "SHR" to Op.SHR, "SAR" to Op.SAR,
-            "ROL" to Op.ROL, "ROR" to Op.ROR, "RCL" to Op.RCL, "RCR" to Op.RCR,
-            "MOVS" to Op.MOVS, "CMPS" to Op.CMPS, "SCAS" to Op.SCAS, "LODS" to Op.LODS,
-            "STOS" to Op.STOS
-        )
+        private val String.asOperation: Operation?
+            get() =  when (this.uppercase()) {
+                "MOV" -> Operation.OperationTwo.MOV
+                "ADD" -> Operation.OperationTwo.ADD
+                "SUB" -> Operation.OperationTwo.SUB
+                "XCHG" -> Operation.OperationTwo.XCHG
+                "INC" -> Operation.OperationOne.INC
+                "DEC" -> Operation.OperationOne.DEC
+                "PUSH" -> Operation.OperationOne.PUSH
+                "POP" -> Operation.OperationOne.POP
+                "JMP" -> Operation.OperationOne.JMP
+                "CALL" -> Operation.OperationOne.CALL
+                "RET" -> Operation.OperationZero.RET
+                "NOP" -> Operation.OperationZero.NOP
+//                "CMP" -> Operation.OperationTwo.CMP
+//                "AND" -> Operation.OperationTwo.AND
+//                "OR" -> Operation.OperationTwo.OR
+//                "XOR" -> Operation.OperationTwo.XOR
+//                "TEST" -> Operation.OperationTwo.TEST
+//                "LEA" -> Operation.OperationTwo.LEA
+//                "NEG" -> Operation.OperationOne.NEG
+//                "NOT" -> Operation.OperationOne.NOT
+//                "MUL" -> Operation.OperationOne.MUL
+//                "IMUL" -> Operation.OperationOne.IMUL
+//                "DIV" -> Operation.OperationOne.DIV
+//                "IDIV" -> Operation.OperationOne.IDIV
+//                "JE", "JZ" -> Operation.OperationOne.JE
+//                "JNE", "JNZ" -> Operation.OperationOne.JNE
+//                "JG", "JNLE" -> Operation.OperationOne.JG
+//                "JL", "JNGE" -> Operation.OperationOne.JL
+//                "JGE", "JNL" -> Operation.OperationOne.JGE
+//                "JLE", "JNG" -> Operation.OperationOne.JLE
+//                "JA", "JNBE" -> Operation.OperationOne.JA
+//                "JAE", "JNB", "JNC" -> Operation.OperationOne.JAE
+//                "JB", "JNAE", "JC" -> Operation.OperationOne.JB
+//                "JBE", "JNA" -> Operation.OperationOne.JBE
+//                "INT" -> Operation.OperationOne.INT
+//                 "HLT" -> Operation.OperationZero.HLT
+
+                // String operations
+//                 "MOVSB", "MOVSW", "MOVSD" -> Operation.OperationZero.MOVS // Assuming a generic MOVS
+//                 "CMPSB", "CMPSW", "CMPSD" -> Operation.OperationZero.CMPS
+//                 "SCASB", "SCASW", "SCASD" -> Operation.OperationZero.SCAS
+//                 "LODSB", "LODSW", "LODSD" -> Operation.OperationZero.LODS
+//                 "STOSB", "STOSW", "STOSD" -> Operation.OperationZero.STOS
+
+                // Shift and Rotate operations - Assuming they are two-operand for now
+//                 "SHL", "SAL" -> Operation.OperationTwo.SHL
+//                 "SHR" -> Operation.OperationTwo.SHR
+//                 "SAR" -> Operation.OperationTwo.SAR
+//                 "ROL" -> Operation.OperationTwo.ROL
+//                 "ROR" -> Operation.OperationTwo.ROR
+//                 "RCL" -> Operation.OperationTwo.RCL
+//                 "RCR" -> Operation.OperationTwo.RCR
+                else -> null
+            }
     }
 
-    /**
-     * Consumes the current token if its kind matches the expected kind.
-     *
-     * @param kind The expected [Token.Kind].
-     * @return The consumed [Token].
-     * @throws IllegalStateException if the current token's kind does not match the expected kind.
-     */
     private fun eat(kind: Token.Kind): Token {
         if (look.kind != kind) error("Parse error at line ${look.line}: expected $kind, got ${look.kind}")
         val t = look
@@ -66,58 +99,39 @@ class Parser(src: String, private val mem: Memory) {
         return t
     }
 
-    /**
-     * Tries to consume the current token if its kind matches the expected kind.
-     *
-     * @param kind The expected [Token.Kind].
-     * @return The consumed [Token] if successful, or `null` otherwise.
-     */
     private fun tryEat(kind: Token.Kind): Token? = if (look.kind == kind) eat(kind) else null
 
-    /**
-     * Checks if the current token is a newline or end-of-file.
-     *
-     * @return `true` if the current token is a newline or EOF, `false` otherwise.
-     */
     private fun isNewlineOrEOF() = look.kind == Token.Kind.NEWLINE || look.kind == Token.Kind.EOF
 
-    /**
-     * Parses a string representation of a number into an integer.
-     * Supports decimal, hexadecimal (0x prefix or h suffix),
-     * binary (0b prefix or b suffix), and octal (0o prefix or o/q suffix).
-     *
-     * @throws NumberFormatException if the string is not a valid representation of a number in any supported base.
-     * @param text The string representation of the number.
-     * @return The parsed integer value.
-     */
-    private fun parseImmediate(text: String): Long {
-        val t = text.lowercase().replace("_", "") // Allow underscores for readability
+    private fun parseImmediate(text: String): UInt {
+        val t = text.lowercase().replace("_", "")
         return when {
-            // Hexadecimal
-            t.startsWith("0x") -> t.substring(2).toLong(16)
-            t.endsWith("h") -> t.dropLast(1).toLong(16)
-            // Binary
-            t.startsWith("0b") -> t.substring(2).toLong(2)
-            t.endsWith("b") -> t.dropLast(1).toLong(2)
-            // Octal
-            t.startsWith("0o") -> t.substring(2).toLong(8)
-            t.endsWith("o") || t.endsWith("q") -> t.dropLast(1).toLong(8)
-            // Decimal (default)
-            t.all { it.isDigit() || (it == '-' && t.indexOf('-') == 0) } -> t.toLong()
+            t.startsWith("0x") -> t.substring(2).toUInt(16)
+            t.endsWith("h") -> t.dropLast(1).toUInt(16)
+            t.startsWith("0b") -> t.substring(2).toUInt(2)
+            t.endsWith("b") -> t.dropLast(1).toUInt(2)
+            t.startsWith("0o") -> t.substring(2).toUInt(8)
+            t.endsWith("o") || t.endsWith("q") -> t.dropLast(1).toUInt(8)
             // Handle character literals like 'A'
-            t.length == 3 && t.startsWith("'") && t.endsWith("'") -> t[1].code.toLong()
-            else -> t.toLong()
+            t.length == 3 && t.startsWith("'") && t.endsWith("'") -> t[1].code.toUInt()
+            // Try parsing as Long first to handle potential negative signs, then convert to UInt.
+            // This allows parsing "-1" and getting MAX_UINT, for example.
+            // Direct toUInt() would fail for negative strings.
+            else -> try {
+                t.toLong().toUInt()
+            } catch (e: NumberFormatException) {
+                // If toLong fails, try toUInt for positive numbers that might be too large for Long but fit UInt.
+                // This is less common for typical assembly immediates but provides robustness.
+                try {
+                    t.toUInt()
+                } catch (e2: NumberFormatException) {
+                    throw NumberFormatException("Invalid number format: $text -> $t")
+                }
+            }
         }
     }
 
-    /**
-     * Parses a register name string (case-insensitive) into a [Reg] enum.
-     *
-     * @param id The string representation of the register (e.g., "AX", "al", "EBP", "DS").
-     * @return The corresponding [Reg] enum if the string is a valid register name, or `null` otherwise.
-     */
     private fun parseReg(id: String): Reg? = when(id.uppercase()) {
-        // 8-bit registers
         "AL" -> Reg.AL
         "AH" -> Reg.AH
         "BL" -> Reg.BL
@@ -126,7 +140,6 @@ class Parser(src: String, private val mem: Memory) {
         "CH" -> Reg.CH
         "DL" -> Reg.DL
         "DH" -> Reg.DH
-        // 16-bit general-purpose registers
         "AX"-> Reg.AX
         "BX"-> Reg.BX
         "CX"-> Reg.CX
@@ -135,12 +148,10 @@ class Parser(src: String, private val mem: Memory) {
         "DI"-> Reg.DI
         "BP"-> Reg.BP
         "SP"-> Reg.SP
-        // 16-bit segment registers
         "CS" -> Reg.CS
         "DS" -> Reg.DS
         "SS" -> Reg.SS
         "ES" -> Reg.ES
-        // 32-bit registers
         "EAX" -> Reg.EAX
         "EBX" -> Reg.EBX
         "ECX" -> Reg.ECX
@@ -152,112 +163,79 @@ class Parser(src: String, private val mem: Memory) {
         else -> null
     }
 
-    /**
-     * Parses an operand from the token stream.
-     *
-     * @return The parsed [Operand].
-     */
     private fun parseOperand(): Operand {
         return when (look.kind) {
             Token.Kind.ID -> {
                 val idTok = eat(Token.Kind.ID)
                 val tokenText = idTok.text
                 parseReg(tokenText)?.let { return Operand.RegOp(it) }
-                dataSymbols[tokenText]?.let { offset ->
-                    // When a symbol is used as an operand like `mov ax, myVar`,
-                    // it implies `mov ax, [offset_of_myVar_in_data_segment]`.
-                    // The interpreter will need to add DATA_SEGMENT_BASE (or DS register value)
-                    // to this offset.
-                    return Operand.MemOp(null, offset)
+                symbolTable[tokenText]?.let { offset -> // offset is UInt
+                    return Operand.MemOp(null, offset) // MemOp expects UInt?
                 }
-                // Attempt to parse as an immediate number if it's not a register or data symbol.
-                // This handles cases where a number might have been tokenized as an ID.
                 return try {
-                    val immediateValue = parseImmediate(tokenText)
-                    Operand.ImmOp(immediateValue)
+                    val immediateValue = parseImmediate(tokenText) // returns UInt
+                    Operand.ImmOp(immediateValue) // ImmOp expects UInt
                 } catch (e: NumberFormatException) {
-                    // If parsing as an immediate fails, then it's a code label.
                     Operand.LabelOp(tokenText)
                 }
             }
-            Token.Kind.NUMBER -> Operand.ImmOp(parseImmediate(eat(Token.Kind.NUMBER).text))
+            Token.Kind.NUMBER -> Operand.ImmOp(parseImmediate(eat(Token.Kind.NUMBER).text)) // parseImmediate returns UInt
             Token.Kind.LBRACK -> {
                 eat(Token.Kind.LBRACK)
                 var base: Reg? = null
-                var disp: Long? = null
+                var disp: UInt? = null // Changed to UInt?
                 when (look.kind) {
                     Token.Kind.ID -> {
                         val idTok = eat(Token.Kind.ID)
                         val r = parseReg(idTok.text)
                         if (r != null) {
                             base = r
-                            // Check for displacement after register e.g. [bx+4]
                             if (tryEat(Token.Kind.PLUS) != null) {
-                                disp = parseImmediate(eat(Token.Kind.NUMBER).text)
+                                disp = parseImmediate(eat(Token.Kind.NUMBER).text) // returns UInt
                             }
                         } else {
-                            // Assumed to be a data symbol e.g. [myVar] or [myVar+4]
-                            val symbolOffset = dataSymbols[idTok.text] 
+                            val symbolOffset = symbolTable[idTok.text] // UInt?
                                 ?: error("Line ${idTok.line}: Unknown symbol '${idTok.text}' in memory operand")
                             disp = symbolOffset
                             if (tryEat(Token.Kind.PLUS) != null) {
-                                val immediateOffset = parseImmediate(eat(Token.Kind.NUMBER).text)
-                                disp = disp + immediateOffset
+                                val immediateOffset = parseImmediate(eat(Token.Kind.NUMBER).text) // UInt
+                                disp = (disp ?: 0u) + immediateOffset // disp becomes UInt
                             }
                         }
                     }
                     Token.Kind.NUMBER -> { 
-                        disp = parseImmediate(eat(Token.Kind.NUMBER).text)
-                        // Optional: Could support [4+bx] here if needed
+                        disp = parseImmediate(eat(Token.Kind.NUMBER).text) // returns UInt
                     }
                     else -> error("Line ${look.line}: bad memory operand, expected ID or NUMBER inside brackets")
                 }
                 eat(Token.Kind.RBRACK)
-                Operand.MemOp(base, disp)
+                Operand.MemOp(base, disp) // disp is UInt?
             }
             else -> error("Line ${look.line}: unexpected token ${look.kind}")
         }
     }
 
-    /**
-     * Parses an opcode string into an [Op] enum.
-     *
-     * @param id The string representation of the opcode.
-     * @return The corresponding [Op].
-     */
-    private fun parseOp(id: String): Op {
+    // Updated to return Operation
+    private fun parseOp(id: String): Operation {
         val upperId = id.uppercase()
+        // Direct lookup first
+        upperId.asOperation?.let { return it }
 
-        opStringToEnumMap[upperId]?.let { return it }
+        // Removed suffix logic as Operation objects should be distinct
+        // If MOVB, MOVW, MOVD are needed, they should be distinct entries in opStringToOperationMap
+        // mapping to specific Operation objects e.g. Operation.OperationTwo.MOVB if that exists.
 
-        if (upperId.length >= 2) { // Allow single char suffix like "MOVB"
-            val lastChar = upperId.last()
-            if (lastChar == 'B' || lastChar == 'W' || lastChar == 'D' || lastChar == 'L') {
-                val baseMnemonic = upperId.dropLast(1)
-                opStringToEnumMap[baseMnemonic]?.let { return it }
-            }
-        }
         error("Line ${look.line}: unknown opcode '$id' (parsed as '$upperId')")
     }
 
-    /**
-     * Data class to hold the result of parsing the program.
-     *
-     * @property instructions The list of parsed [Instruction]s.
-     * @property labels A mutable map of label names to their corresponding instruction index.
-     */
     data class ParsedProgram(
         val instructions: List<Instruction>,
-        val labels: MutableMap<String, Long> // label -> instruction index
+        val labels: MutableMap<String, UInt> // label -> instruction index (UInt)
     )
 
-    /**
-     * Parses the entire assembly program.
-     * @return A [ParsedProgram] object containing the parsed instructions and labels.
-     */
     fun parseProgram(): ParsedProgram {
         val instructions = mutableListOf<Instruction>()
-        val labels = mutableMapOf<String, Long>() // label name -> instruction index for code labels
+        val labels = mutableMapOf<String, UInt>() // label name -> instruction index (UInt)
         
         while (true) {
             when (look.kind) {
@@ -269,12 +247,11 @@ class Parser(src: String, private val mem: Memory) {
 
                     if (tryEat(Token.Kind.COLON) != null) { // Label definition
                         if (currentSection == Section.CODE) {
-                            labels[id] = instructions.size.toLong() // Code label points to the next instruction index
+                            labels[id] = instructions.size.toUInt()
                         } else if (currentSection == Section.DATA) {
-                            // Labels in .data section point to current data offset
-                            dataSymbols[id] = currentDataOffset 
+                            symbolTable[id] = DATA_SEGMENT_BASE + currentDataOffset
                         }
-                        while (!isNewlineOrEOF()) look = lex.nextToken() // Consume rest of line
+                        while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
                         continue
                     }
@@ -283,54 +260,81 @@ class Parser(src: String, private val mem: Memory) {
                         when(id.lowercase()) {
                             ".data" -> {
                                 currentSection = Section.DATA
-                                currentDataOffset = 0 // Reset offset when switching to data section
+                                currentDataOffset = 0u 
                             }
                             ".code" -> currentSection = Section.CODE
-                            // TODO: Add other sections like .stack, .bss if needed
                         }
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
                         continue
                     }
 
-                    // Opcode or Data definition
                     if (currentSection == Section.CODE) {
-                        val op = parseOp(id)
+                        val op = parseOp(id) // Returns Operation
                         var dst: Operand? = null
                         var src: Operand? = null
-                        if (!isNewlineOrEOF()) {
-                            dst = parseOperand()
-                            if (tryEat(Token.Kind.COMMA) != null) src = parseOperand()
-                            while (!isNewlineOrEOF()) look = lex.nextToken()
-                        }
-                        tryEat(Token.Kind.NEWLINE)
-                        instructions.add(Instruction(op, dst, src, idTok.line))
-                    } else if (currentSection == Section.DATA) {
-                        // id is the variable name, look is now type (DB, WORD, etc.)
-                        val symbolName = id 
-                        val typeTok = eat(Token.Kind.ID) // DB, WORD, etc.
-                        val valTok = if (look.kind == Token.Kind.NUMBER) eat(Token.Kind.NUMBER) else null
-                        println("DATA: $symbolName ${typeTok.text} $valTok")
-                        val value = if (valTok != null) parseImmediate(valTok.text) else 0
                         
-                        dataSymbols[symbolName] = currentDataOffset // Store offset before incrementing
+                        // Parse operands based on arity suggested by Operation type if possible,
+                        // or parse up to two and let the when block validate.
+                        // For simplicity, parse up to two for now.
+                        if (!isNewlineOrEOF() && look.kind != Token.Kind.COLON) { // Stop if label follows
+                            dst = parseOperand()
+                            if (tryEat(Token.Kind.COMMA) != null) {
+                                if (!isNewlineOrEOF() && look.kind != Token.Kind.COLON) {
+                                    src = parseOperand()
+                                } else {
+                                     error("Line ${idTok.line}: Expected second operand after comma for instruction '$id'")
+                                }
+                            }
+                        }
+                        
+                        // Consume rest of the line (e.g. comments after instruction)
+                        while (!isNewlineOrEOF()) look = lex.nextToken() 
+                        tryEat(Token.Kind.NEWLINE)
 
-                        val physicalAddress = DATA_SEGMENT_BASE + currentDataOffset
+                        when (op) {
+                            is Operation.OperationZero -> {
+                                if (dst != null || src != null) error("Line ${idTok.line}: Opcode '$id' expects 0 operands, got ${listOfNotNull(dst,src).size}")
+                                instructions.add(Instruction.InstructionZero(op, idTok.line))
+                            }
+                            is Operation.OperationOne -> {
+                                if (dst == null || src != null) error("Line ${idTok.line}: Opcode '$id' expects 1 operand, got ${listOfNotNull(dst,src).size}")
+                                instructions.add(Instruction.InstructionOne(op, dst!!, idTok.line))
+                            }
+                            is Operation.OperationTwo -> {
+                                if (dst == null || src == null) error("Line ${idTok.line}: Opcode '$id' expects 2 operands, got ${listOfNotNull(dst,src).size}")
+                                instructions.add(Instruction.InstructionTwo(op, dst!!, src!!, idTok.line))
+                            }
+                            // else -> error("Line ${idTok.line}: Unhandled Operation type for opcode '$id'") // Should not happen if parseOp is correct
+                        }
+
+                    } else if (currentSection == Section.DATA) {
+                        val symbolName = id 
+                        val typeTok = eat(Token.Kind.ID) 
+                        val valTok = if (look.kind == Token.Kind.NUMBER || look.kind == Token.Kind.ID) look else null // Allow ID for char literal like 'A'
+                        if (valTok != null) eat(valTok.kind) // Consume the token
+
+                        val value = if (valTok != null) parseImmediate(valTok.text) else 0u // Returns UInt
+                        
+                        symbolTable[symbolName] = DATA_SEGMENT_BASE + currentDataOffset
+
+                        val physicalAddress = (DATA_SEGMENT_BASE + currentDataOffset) 
 
                         when (typeTok.text.uppercase()) {
                             "DB", "BYTE" -> {
-                                if (value < -128 || value > 255) error("Line ${typeTok.line}: Value out of 8-bit range for DB/BYTE: $value")
+                                if (value > UByte.MAX_VALUE) error("Line ${typeTok.line}: Value $value out of 8-bit unsigned range for DB/BYTE")
                                 mem.writeByte(physicalAddress.toInt(), value.toUByte())
-                                currentDataOffset += 1
+                                currentDataOffset += 1u
                             }
                             "DW", "WORD" -> {
-                                if (value < -32768 || value > 65535) error("Line ${typeTok.line}: Value out of 16-bit range for DW/WORD: $value")
+                                if (value > UShort.MAX_VALUE) error("Line ${typeTok.line}: Value $value out of 16-bit unsigned range for DW/WORD")
                                 mem.writeWord(physicalAddress.toInt(), value.toUShort())
-                                currentDataOffset += 2
+                                currentDataOffset += 2u
                             }
                             "DD", "DWORD", "LONG" -> {
-                                mem.writeDWord(physicalAddress.toInt(), value.toUInt())
-                                currentDataOffset += 4
+                                // Value is already UInt, which matches writeDWord expectation
+                                mem.writeDWord(physicalAddress.toInt(), value)
+                                currentDataOffset += 4u
                             }
                             else -> error("Line ${typeTok.line}: Unsupported data directive '${typeTok.text}'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")
                         }
@@ -338,7 +342,7 @@ class Parser(src: String, private val mem: Memory) {
                         tryEat(Token.Kind.NEWLINE)
                     }
                 }
-                else -> { // Skip unexpected tokens until newline
+                else -> { 
                     while (!isNewlineOrEOF()) look = lex.nextToken()
                     tryEat(Token.Kind.NEWLINE)
                 }

@@ -85,7 +85,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         require(esp + 3u < mem.bytes.toUInt()) { // Check upper bound for pop
             "Stack physical read out of bounds: Addr=0x${esp.toString(16)}, MemSize=0x${mem.bytes.toString(16)}"
         }
-        val value = mem.readDWord(esp.toInt())
+        val value = mem.readDWord(esp.toLong())
         esp += 4u
         regs[Reg32.ESP.ordinal] = esp
         return value

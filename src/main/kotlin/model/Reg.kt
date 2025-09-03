@@ -6,55 +6,55 @@ package model
  * This enum class categorizes registers by their size: 8-bit, 16-bit, and 32-bit,
  * and includes segment registers.
  */
-enum class Reg {
+enum class Reg(val code: UByte) {
     /** Accumulator Low byte (8-bit) */
-    AL,
+    AL(0x00u),
     /** Accumulator High byte (8-bit) */
-    AH,
+    AH(0x04u),
     /** Base Low byte (8-bit) */
-    BL,
+    BL(0x03u),
     /** Base High byte (8-bit) */
-    BH,
+    BH(0x07u),
     /** Count Low byte (8-bit) */
-    CL,
+    CL(0x01u),
     /** Count High byte (8-bit) */
-    CH,
+    CH(0x05u),
     /** Data Low byte (8-bit) */
-    DL,
+    DL(0x02u),
     /** Data High byte (8-bit) */
-    DH,
+    DH(0x06u),
 
     /** Accumulator register (16-bit) */
-    AX,
+    AX(0x00u),
     /** Base register (16-bit) */
-    BX,
+    BX(0x03u),
     /** Count register (16-bit) */
-    CX,
+    CX(0x01u),
     /** Data register (16-bit) */
-    DX,
+    DX(0x02u),
     /** Source Index register (16-bit) */
-    SI,
+    SI(0x06u),
     /** Destination Index register (16-bit) */
-    DI,
+    DI(0x07u),
     /** Base Pointer register (16-bit) */
-    BP,
+    BP(0x05u),
     /** Stack Pointer register (16-bit) */
-    SP,
+    SP(0x04u),
 
     /** Extended Accumulator register (32-bit) */
-    EAX,
+    EAX(0x00u),
     /** Extended Base register (32-bit) */
-    EBX,
+    EBX(0x03u),
     /** Extended Count register (32-bit) */
-    ECX,
+    ECX(0x01u),
     /** Extended Data register (32-bit) */
-    EDX,
+    EDX(0x02u),
     /** Extended Source Index register (32-bit) */
-    ESI,
+    ESI(0x06u),
     /** Extended Destination Index register (32-bit) */
-    EDI,
+    EDI(0x07u),
     /** Extended Base Pointer register (32-bit) */
-    EBP,
+    EBP(0x05u),
     /** Extended Stack Pointer register (32-bit) */
-    ESP
+    ESP(0x04u)
 }

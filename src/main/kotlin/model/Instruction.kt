@@ -27,7 +27,19 @@ import kotlin.collections.addAll
 sealed class Instruction(
     open val line: Int = -1
 ) {
+    /**
+     * Encodes the instruction into a sequence of bytes (machine code).
+     *
+     * @return A UByteArray representing the machine code for this instruction.
+     * @throws error if the instruction or its operands are unsupported for encoding.
+     */
     abstract fun encode(): UByteArray
+
+    /**
+     * Provides a string representation of the instruction, typically for debugging or display.
+     *
+     * @return A string in the format "line: operation operands".
+     */
     abstract override fun toString(): String
 
     /**
@@ -41,6 +53,13 @@ sealed class Instruction(
         val operation: OperationZero,
         override val line: Int = -1
     ) : Instruction(line) {
+        /**
+         * Encodes the zero-operand instruction into machine code.
+         *
+         * @return A UByteArray representing the machine code.
+         *         For `NOP`, it's `0x90`.
+         * @throws error if the operation is not supported.
+         */
         override fun encode(): UByteArray {
             return when (this.operation) {
                 OperationZero.NOP -> ubyteArrayOf(0x90.toUByte())
@@ -48,6 +67,11 @@ sealed class Instruction(
             }
         }
 
+        /**
+         * Returns a string representation of the zero-operand instruction.
+         *
+         * @return A string in the format "line: operation".
+         */
         override fun toString(): String = "$line: $operation"
     }
 
@@ -64,6 +88,14 @@ sealed class Instruction(
         val operand: Operand,
         override val line: Int = -1
     ) : Instruction(line) {
+        /**
+         * Encodes the one-operand instruction into machine code.
+         *
+         * @return A UByteArray representing the machine code.
+         *         For `PUSH imm32`, it's `0x68` followed by the 4-byte immediate value.
+         * @throws error if the operation or operand type is not supported.
+         *               Currently, only `PUSH Immediate` is supported.
+         */
         override fun encode(): UByteArray {
             return when (this.operation) {
                 OperationOne.PUSH -> {
@@ -74,6 +106,11 @@ sealed class Instruction(
             }
         }
 
+        /**
+         * Returns a string representation of the one-operand instruction.
+         *
+         * @return A string in the format "line: operation operand".
+         */
         override fun toString(): String = "$line: $operation $operand"
     }
 
@@ -92,6 +129,15 @@ sealed class Instruction(
         val src: Operand,
         override val line: Int = -1
     ) : Instruction(line) {
+        /**
+         * Encodes the two-operand instruction into machine code.
+         *
+         * @return A UByteArray representing the machine code.
+         *         Supports `MOV reg, imm32` (opcode `0xB8 + reg.code` followed by immediate)
+         *         and `MOV reg, reg` (opcodes `0x89` followed by ModR/M byte).
+         * @throws error if the operation or operand combination is not supported.
+         *               `MOV mem32, ...` and `MOV reg32, mem32/label` are not yet implemented.
+         */
         override fun encode(): UByteArray {
             return when (this.operation) {
                 OperationTwo.MOV -> {
@@ -121,10 +167,24 @@ sealed class Instruction(
             }
         }
 
+        /**
+         * Returns a string representation of the two-operand instruction.
+         *
+         * @return A string in the format "line: operation dst, src".
+         */
         override fun toString(): String = "$line: $operation $dst, $src"
     }
 
     companion object {
+        /**
+         * Decodes a UByteArray of machine code into a list of Instruction objects.
+         * The line number for decoded instructions is set to their byte offset in the input array.
+         *
+         * @param bytes The UByteArray containing the x86 machine code.
+         * @return A list of decoded {@link Instruction} objects.
+         * @throws error if an unknown opcode is encountered or an unsupported addressing mode is used.
+         *               Currently supports `NOP`, `PUSH imm32`, `MOV r32, imm32`, and `MOV r32, r32`.
+         */
         fun decode(bytes: UByteArray): List<Instruction> {
             val result = mutableListOf<Instruction>()
             var i = 0
@@ -172,7 +232,7 @@ sealed class Instruction(
             return result
         }
 
-        internal fun uIntToBytes(value: UInt): UByteArray =
+        private fun uIntToBytes(value: UInt): UByteArray =
             ubyteArrayOf(
                 (value and 0xFFu).toUByte(),
                 ((value shr 8) and 0xFFu).toUByte(),
@@ -180,7 +240,7 @@ sealed class Instruction(
                 ((value shr 24) and 0xFFu).toUByte()
             )
 
-        internal fun UByteArray.toUInt(): UInt = (this[0].toUInt() and 0xFFu) or
+        private fun UByteArray.toUInt(): UInt = (this[0].toUInt() and 0xFFu) or
                 ((this[1].toUInt() and 0xFFu) shl 8) or
                 ((this[2].toUInt() and 0xFFu) shl 16) or
                 ((this[3].toUInt() and 0xFFu) shl 24)

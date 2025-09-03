@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalUnsignedTypes::class)
+
 package model
 
 /**
@@ -20,6 +22,10 @@ package model
 sealed class Instruction(
     open val line: Int = -1
 ) {
+    abstract fun encode(): UByteArray
+    abstract override fun toString(): String
+
+
     /**
      * Represents an instruction with no operands.
      * Examples: `nop`, `ret`.
@@ -31,6 +37,13 @@ sealed class Instruction(
         val operation: Operation.OperationZero,
         override val line: Int = -1
     ) : Instruction(line) {
+        override fun encode(): UByteArray {
+            return when (this.operation) {
+                Operation.OperationZero.NOP -> ubyteArrayOf(0x90.toUByte())
+                else -> error("Unsupported zero-op instruction: ${this.operation}")
+            }
+        }
+
         override fun toString(): String = "$line: $operation"
     }
 
@@ -47,6 +60,16 @@ sealed class Instruction(
         val operand: Operand,
         override val line: Int = -1
     ) : Instruction(line) {
+        override fun encode(): UByteArray {
+            return when (this.operation) {
+                Operation.OperationOne.PUSH -> {
+                    val imm = (this.operand as Operand.Immediate).value
+                    ubyteArrayOf(0x68.toUByte()) + uIntToBytes(imm)
+                }
+                else -> error("Unsupported one-op instruction: ${this.operation}")
+            }
+        }
+
         override fun toString(): String = "$line: $operation $operand"
     }
 
@@ -65,6 +88,97 @@ sealed class Instruction(
         val src: Operand,
         override val line: Int = -1
     ) : Instruction(line) {
+        override fun encode(): UByteArray {
+            return when (this.operation) {
+                Operation.OperationTwo.MOV -> {
+                    val dst = this.dst
+                    val src = this.src
+                    when (dst) {
+                        is Operand.Register -> {
+                            when (src) {
+                                is Operand.Immediate -> {
+                                    val imm = src.value
+                                    val opcode = (0xB8 + dst.reg.code.toInt()).toUByte()
+                                    ubyteArrayOf(opcode) + Instruction.uIntToBytes(imm)
+                                }
+                                is Operand.Register -> {
+                                    val modRM = (0b11_000_000 or (src.reg.code.toInt() shl 3) or dst.reg.code.toInt()).toUByte()
+                                    ubyteArrayOf(0x89.toUByte(), modRM)
+                                }
+                                is Operand.Memory -> TODO("MOV reg32, mem32 not implemented yet")
+                                is Operand.Label -> TODO("MOV reg32, mem32 not implemented yet")
+                            }
+                        }
+                        is Operand.Memory -> error("MOV mem32, ... not implemented yet")
+                        else -> error("Unsupported MOV destination operand: $dst")
+                    }
+                }
+                else -> error("Unsupported two-op instruction: ${this.operation}")
+            }
+        }
+
         override fun toString(): String = "$line: $operation $dst, $src"
+    }
+
+    companion object {
+        fun decode(bytes: UByteArray): List<Instruction> {
+            val result = mutableListOf<Instruction>()
+            var i = 0
+            val r32OpcodeMap = Reg.entries
+                .filter { it.name.startsWith("E") }
+                .associateBy { it.code.toInt() }
+
+            while (i < bytes.size) {
+                when (val currentOpcode = bytes[i].toInt() and 0xFF) {
+                    0x90 -> {
+                        result.add(InstructionZero(Operation.OperationZero.NOP, i))
+                        i += 1
+                    }
+                    0x68 -> {
+                        val imm = bytes.copyOfRange(i + 1, i + 5).toUInt() // Uses companion extension
+                        result.add(InstructionOne(Operation.OperationOne.PUSH, Operand.Immediate(imm), i))
+                        i += 5
+                    }
+                    in 0xB8..0xBF -> {
+                        val regOpcode = currentOpcode - 0xB8
+                        val imm = bytes.copyOfRange(i + 1, i + 5).toUInt() // Uses companion extension
+                        val dstReg = r32OpcodeMap[regOpcode]
+                            ?: error("Unknown 32-bit destination register opcode: $regOpcode for MOV r32, imm32 instruction at offset $i")
+                        result.add(InstructionTwo(Operation.OperationTwo.MOV, Operand.Register(dstReg), Operand.Immediate(imm), i))
+                        i += 5
+                    }
+                    0x89 -> {
+                        val modRM = bytes[i + 1].toInt()
+                        val mod = (modRM shr 6) and 0b11
+                        if (mod != 0b11) {
+                            error("Unsupported MOV addressing mode (mod != 11): ${modRM.toString(16)} at offset $i")
+                        }
+                        val dstRegOpcode = modRM and 0b111
+                        val srcRegOpcode = (modRM shr 3) and 0b111
+                        val dstReg = r32OpcodeMap[dstRegOpcode]
+                            ?: error("Unknown 32-bit destination register opcode: $dstRegOpcode in ModR/M ${modRM.toString(16)} at offset $i")
+                        val srcReg = r32OpcodeMap[srcRegOpcode]
+                            ?: error("Unknown 32-bit source register opcode: $srcRegOpcode in ModR/M ${modRM.toString(16)} at offset $i")
+                        result.add(InstructionTwo(Operation.OperationTwo.MOV, Operand.Register(dstReg), Operand.Register(srcReg), i))
+                        i += 2
+                    }
+                    else -> error("Unknown opcode: 0x${bytes[i].toUByte().toString(16)} at offset $i")
+                }
+            }
+            return result
+        }
+
+        internal fun uIntToBytes(value: UInt): UByteArray =
+            ubyteArrayOf(
+                (value and 0xFFu).toUByte(),
+                ((value shr 8) and 0xFFu).toUByte(),
+                ((value shr 16) and 0xFFu).toUByte(),
+                ((value shr 24) and 0xFFu).toUByte()
+            )
+
+        internal fun UByteArray.toUInt(): UInt = (this[0].toUInt() and 0xFFu) or
+                ((this[1].toUInt() and 0xFFu) shl 8) or
+                ((this[2].toUInt() and 0xFFu) shl 16) or
+                ((this[3].toUInt() and 0xFFu) shl 24)
     }
 }

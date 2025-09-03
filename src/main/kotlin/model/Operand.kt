@@ -48,8 +48,8 @@ sealed class Operand {
             val baseStr = base?.name ?: ""
             val dispStr = disp?.let { d ->
                 when {
-                    base != null && d > 0U -> "${d.toString(radix = 16)}h"
-                    d < 0U -> "- ${(-d.toInt()).toString(radix = 16)}h"
+                    base != null && d > 0U -> "+ ${d.toString(radix = 16)}h"
+                    base != null && d < 0U -> "- ${(-d.toInt()).toString(radix = 16)}h"
                     else -> "${d.toString(radix = 16)}h"
                 }
             } ?: ""

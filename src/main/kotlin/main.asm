@@ -1,6 +1,10 @@
 .data
 x DWORD 1234ABCDh
-y DWORD 7
+y WORD 7, 5,8,10
+name BYTE "Sam", 0
+char DWORD 51
+char2 BYTE 'A'
+char3 WORD 51h
 sum DWORD ?
 
 .code
@@ -11,6 +15,7 @@ sum DWORD ?
     ADD AX, 7
     MOV BX, AX
     pop ax
+    mov cx, char
 
     ; countdown from 3 to 0
     MOV CX, 3

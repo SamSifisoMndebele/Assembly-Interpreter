@@ -19,6 +19,8 @@ data class Token(val kind: Kind, val text: String, val line: Int) {
         ID,
         /** Numeric literal (supports 8-bit, 16-bit, and 32-bit representations) */
         NUMBER,
+        /** String literal */
+        STRING,
         /** Left bracket '[' */
         LBRACK,
         /** Right bracket ']' */

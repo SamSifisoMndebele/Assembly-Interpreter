@@ -42,30 +42,18 @@ sealed class Operand {
      */
     data class Memory(
         val base: Reg?,
-        val disp: UInt? = null, // Displacement
-        val index: Reg? = null, // Index register
-        val scale: UInt? = null // Scale for index (1, 2, 4, or 8)
+        val disp: UInt? = null // Displacement
     ) : Operand() {
         override fun toString(): String {
-            val parts = mutableListOf<String>()
-            if (base != null) {
-                parts.add(base.name)
-            }
-            if (index != null) {
-                var indexStr = index.name
-                if (scale != null && scale != 1U) {
-                    indexStr += "*$scale"
+            val baseStr = base?.name ?: ""
+            val dispStr = disp?.let { d ->
+                when {
+                    base != null && d > 0U -> "${d.toString(radix = 16)}h"
+                    d < 0U -> "- ${(-d.toInt()).toString(radix = 16)}h"
+                    else -> "${d.toString(radix = 16)}h"
                 }
-                parts.add(indexStr)
-            }
-            if (disp != null) {
-                val dispStr = if (parts.isNotEmpty() && disp > 0U) "+ ${disp.toString(radix = 16)}h"
-                              else if (disp < 0U) "- ${(-disp.toInt()).toString(radix = 16)}h"
-                              else "${disp.toString(radix = 16)}h"
-                parts.add(dispStr)
-            }
-
-            return if (parts.isEmpty()) "" else "[${parts.joinToString(" ")}]"
+            } ?: ""
+            return if (baseStr.isEmpty() && dispStr.isEmpty()) "" else "[$baseStr$dispStr]"
         }
     }
 }

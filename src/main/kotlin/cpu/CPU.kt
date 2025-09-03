@@ -137,12 +137,8 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         }
         is Operand.Memory -> {
             val baseValue = op.base?.let { get32(it) } ?: 0u
-            val indexValue = op.index?.let { get32(it) } ?: 0u
-            val scaleValue = op.scale ?: 1u // Default scale to 1 if not specified
             val displacement = op.disp ?: 0u
-
-            val scaledIndex = indexValue * scaleValue
-            val address = baseValue + scaledIndex + displacement
+            val address = baseValue + displacement
 
             if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) { // Assuming DWORD access
                 error("Memory read out of bounds: Addr=0x${address.toString(16)}, MemSize=0x${mem.bytes.toString(16)}")
@@ -161,12 +157,8 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
             }
             is Operand.Memory -> {
                 val baseValue = op.base?.let { get32(it) } ?: 0u
-                val indexValue = op.index?.let { get32(it) } ?: 0u
-                val scaleValue = op.scale ?: 1u // Default scale to 1 if not specified
                 val displacement = op.disp ?: 0u
-
-                val scaledIndex = indexValue * scaleValue
-                val address = baseValue + scaledIndex + displacement
+                val address = baseValue + displacement
 
                 if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) { // Assuming DWORD access
                     error("Memory write out of bounds: Addr=0x${address.toString(16)}, MemSize=0x${mem.bytes.toString(16)}")

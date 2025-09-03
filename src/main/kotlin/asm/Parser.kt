@@ -91,7 +91,7 @@ class Parser(src: String, private val mem: Memory) {
     }
 
     private fun eat(kind: Token.Kind): Token {
-        if (look.kind != kind) error("Parse error at line ${look.line}: expected $kind, got ${look.kind}")
+        if (look.kind != kind) error("Parse error at line ${look.line}: expected $kind, got ${look.kind} ('${look.text}')")
         val t = look
         look = lex.nextToken()
         return t
@@ -102,25 +102,49 @@ class Parser(src: String, private val mem: Memory) {
     private fun isNewlineOrEOF() = look.kind == Token.Kind.NEWLINE || look.kind == Token.Kind.EOF
 
     private fun parseImmediate(text: String): UInt {
+        println("Parsing immediate: $text")
         val t = text.lowercase().replace("_", "")
         return when {
-            t.startsWith("0x") -> t.substring(2).toUInt(16)
             t.endsWith("h") -> t.dropLast(1).toUInt(16)
-            t.startsWith("0b") -> t.substring(2).toUInt(2)
             t.endsWith("b") -> t.dropLast(1).toUInt(2)
-            t.startsWith("0o") -> t.substring(2).toUInt(8)
-            t.endsWith("o") || t.endsWith("q") -> t.dropLast(1).toUInt(8)
-            // Handle character literals like 'A'
-            t.length == 3 && t.startsWith("'") && t.endsWith("'") -> t[1].code.toUInt()
-            // Try parsing as Long first to handle potential negative signs, then convert to UInt.
-            // This allows parsing "-1" and getting MAX_UINT, for example.
-            // Direct toUInt() would fail for negative strings.
+            t.endsWith("q") -> t.dropLast(1).toUInt(8)
+            t.endsWith("d") -> t.dropLast(1).toUInt()
             else -> try {
-                t.toLong().toUInt()
+                t.toUInt()
             } catch (_: NumberFormatException) {
                 throw NumberFormatException("Invalid number format: $text -> $t")
             }
         }
+    }
+    
+    private fun parseEscapedChar(char: Char): Char {
+        return when (char) {
+            'n' -> '\n'
+            'r' -> '\r'
+            't' -> '\t'
+            '\\' -> '\\'
+            '\'' -> '\''
+            '"' -> '"'
+            '0' -> '\u0000' // Null character
+            // Add more escaped characters as needed
+            else -> error("Unsupported escape sequence: \\$char")
+        }
+    }
+    
+    private fun parseString(text: String): Array<UInt> {
+        val result = mutableListOf<UInt>()
+        var i = 0
+        while (i < text.length) {
+            val char = text[i]
+            if (char == '\\' && i + 1 < text.length) {
+                result.add(parseEscapedChar(text[i+1]).code.toUInt())
+                i += 2
+            } else {
+                result.add(char.code.toUInt())
+                i += 1
+            }
+        }
+        return result.toTypedArray()
     }
 
     private fun parseReg(id: String): Reg? = when(id.uppercase()) {
@@ -168,6 +192,13 @@ class Parser(src: String, private val mem: Memory) {
                 }
             }
             Token.Kind.NUMBER -> Operand.ImmOp(parseImmediate(eat(Token.Kind.NUMBER).text)) // parseImmediate returns UInt
+            Token.Kind.STRING -> { // Added to handle strings as direct operands if necessary, though data section is primary
+                val strTok = eat(Token.Kind.STRING)
+                // This typically would be an error for most instruction operands or needs specific handling.
+                // For now, let's treat it as a label, which might not be what's intended for general operands.
+                // Or, if it's a character, parseImmediate would handle it if tokenized as ID or NUMBER.
+                error("Line ${strTok.line}: String literal \"${strTok.text}\" not directly usable as instruction operand here. Define in .data section.")
+            }
             Token.Kind.LBRACK -> {
                 eat(Token.Kind.LBRACK)
                 var base: Reg? = null
@@ -179,15 +210,23 @@ class Parser(src: String, private val mem: Memory) {
                         if (r != null) {
                             base = r
                             if (tryEat(Token.Kind.PLUS) != null) {
-                                disp = parseImmediate(eat(Token.Kind.NUMBER).text) // returns UInt
+                                if (look.kind == Token.Kind.NUMBER) {
+                                   disp = parseImmediate(eat(Token.Kind.NUMBER).text) // returns UInt
+                                } else {
+                                    error("Line ${look.line}: Expected number after '+' in memory operand")
+                                }
                             }
                         } else {
                             val symbolOffset = symbolTable[idTok.text] // UInt?
                                 ?: error("Line ${idTok.line}: Unknown symbol '${idTok.text}' in memory operand")
                             disp = symbolOffset
                             if (tryEat(Token.Kind.PLUS) != null) {
-                                val immediateOffset = parseImmediate(eat(Token.Kind.NUMBER).text) // UInt
-                                disp = disp + immediateOffset // disp becomes UInt
+                                if (look.kind == Token.Kind.NUMBER) {
+                                    val immediateOffset = parseImmediate(eat(Token.Kind.NUMBER).text) // UInt
+                                    disp = disp + immediateOffset // disp becomes UInt
+                                } else {
+                                     error("Line ${look.line}: Expected number after '+' in memory operand with symbol")
+                                }
                             }
                         }
                     }
@@ -223,41 +262,11 @@ class Parser(src: String, private val mem: Memory) {
 
     /**
      * Parses the entire assembly program.
-     *
-     * This function iterates through the tokens provided by the lexer,
-     * processing each line according to whether it's in the `.code` or `.data` section.
-     *
-     * In the `.code` section:
-     * - It identifies labels and stores their corresponding instruction index.
-     * - It parses instructions and their operands, creating [Instruction] objects.
-     *
-     * In the `.data` section:
-     * - It identifies data symbols and stores their memory addresses (relative to `DATA_SEGMENT_BASE`).
-     * - It parses data directives (like `DB`, `DW`, `DD`) and writes the specified values
-     *   into the [mem] (Memory) instance at the calculated physical address.
-     *   The `currentDataOffset` tracks the current position within the data segment.
-     *
-     * The function handles:
-     * - End of file (EOF) to terminate parsing.
-     * - Newlines to advance to the next line.
-     * - Label definitions (e.g., `myLabel:`).
-     * - Section directives (`.data`, `.code`).
-     * - Instructions with varying numbers of operands (zero, one, or two).
-     * - Data definitions with type specifiers and values.
-     * - Consumption of comments or any remaining tokens on a line after processing
-     *   the main part (label, directive, or instruction).
-     *
-     * Errors are thrown for syntax issues, unknown opcodes, incorrect operand counts,
-     * or unsupported data directives.
-     *
-     * @return A [ParsedProgram] object containing the list of parsed [Instruction]s
-     *         and a map of label names to their instruction indices.
-     * @throws IllegalStateException if parsing errors occur (e.g., unexpected token,
-     *         unknown opcode, incorrect operand count).
+     * ... (rest of kdoc)
      */
     fun parseProgram(): ParsedProgram {
         val instructions = mutableListOf<Instruction>()
-        val labels = mutableMapOf<String, UInt>() // label name -> instruction index (UInt)
+        val labels = mutableMapOf<String, UInt>() 
         
         while (true) {
             when (look.kind) {
@@ -273,7 +282,7 @@ class Parser(src: String, private val mem: Memory) {
                         } else if (currentSection == Section.DATA) {
                             symbolTable[id] = dataOffset.toUInt()
                         }
-                        while (!isNewlineOrEOF()) look = lex.nextToken()
+                        while (!isNewlineOrEOF()) look = lex.nextToken() // Consume rest of line (e.g. comment)
                         tryEat(Token.Kind.NEWLINE)
                         continue
                     }
@@ -282,9 +291,11 @@ class Parser(src: String, private val mem: Memory) {
                         when(id.lowercase()) {
                             ".data" -> {
                                 currentSection = Section.DATA
-                                dataOffset = 0
+                                dataOffset = 0 // Reset data offset for each .data section (or manage globally)
                             }
                             ".code" -> currentSection = Section.CODE
+                            // Add other directives like .text if needed
+                            else -> error("Line ${idTok.line}: Unknown directive '$id'")
                         }
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
@@ -292,14 +303,11 @@ class Parser(src: String, private val mem: Memory) {
                     }
 
                     if (currentSection == Section.CODE) {
-                        val op = parseOp(id) // Returns Operation
+                        val op = parseOp(id) 
                         var dst: Operand? = null
                         var src: Operand? = null
                         
-                        // Parse operands based on arity suggested by Operation type if possible,
-                        // or parse up to two and let the when block validate.
-                        // For simplicity, parse up to two for now.
-                        if (!isNewlineOrEOF() && look.kind != Token.Kind.COLON) { // Stop if label follows
+                        if (!isNewlineOrEOF() && look.kind != Token.Kind.COLON /* for comments after instruction */) {
                             dst = parseOperand()
                             if (tryEat(Token.Kind.COMMA) != null) {
                                 if (!isNewlineOrEOF() && look.kind != Token.Kind.COLON) {
@@ -310,7 +318,7 @@ class Parser(src: String, private val mem: Memory) {
                             }
                         }
                         
-                        // Consume rest of the line (e.g. comments after instruction)
+                        // Consume any EOL comments or just the EOL
                         while (!isNewlineOrEOF()) look = lex.nextToken() 
                         tryEat(Token.Kind.NEWLINE)
 
@@ -324,7 +332,7 @@ class Parser(src: String, private val mem: Memory) {
                                 instructions.add(Instruction.InstructionOne(op, dst, idTok.line))
                             }
                             is Operation.OperationTwo -> {
-                                if (dst == null || src == null) error("Line ${idTok.line}: Opcode '$id' expects 2 operands, got ${listOfNotNull(dst, null).size}")
+                                if (dst == null || src == null) error("Line ${idTok.line}: Opcode '$id' expects 2 operands, got ${listOfNotNull(dst, src).size}")
                                 instructions.add(Instruction.InstructionTwo(op, dst, src, idTok.line))
                             }
                         }
@@ -332,54 +340,95 @@ class Parser(src: String, private val mem: Memory) {
                     } else if (currentSection == Section.DATA) {
                         val symbolName = id 
                         val typeTok = eat(Token.Kind.ID) 
+                        val directiveText = typeTok.text.uppercase()
 
-                        var value: UInt
-                        // Check for '?' for uninitialized data.
-                        // Assuming '?' is tokenized as Token.Kind.ID.
-                        // If Lexer makes '?' a distinct token kind (e.g. Token.Kind.QUESTION),
-                        // this check should be: if (look.kind == Token.Kind.QUESTION)
-                        if (look.kind == Token.Kind.ID && look.text == "?") {
-                            eat(Token.Kind.ID) // Consume '?'
-                            value = 0u
-                        } else if (look.kind == Token.Kind.NUMBER || look.kind == Token.Kind.ID) {
-                            // Token is an actual number, a character literal ('A'), or a label.
-                            val valueToken = eat(look.kind) // Consume the token for the value
-                            value = parseImmediate(valueToken.text)
-                        } else {
-                            // No explicit value provided (e.g., "myVar DB" followed by newline or comment).
-                            // Default to 0, which is standard for uninitialized data or BSS-like behavior.
-                            value = 0u
-                        }
-                        
                         symbolTable[symbolName] = dataOffset.toUInt()
+                        var valuesProcessed = 0
 
-                        when (typeTok.text.uppercase()) {
-                            "DB", "BYTE" -> {
-                                if (value > UByte.MAX_VALUE) error("Line ${typeTok.line}: Value $value out of 8-bit unsigned range for DB/BYTE")
-                                mem.writeByte(dataOffset, value.toUByte())
-                                dataOffset += 1
-                            }
-                            "DW", "WORD" -> {
-                                if (value > UShort.MAX_VALUE) error("Line ${typeTok.line}: Value $value out of 16-bit unsigned range for DW/WORD")
+                        do {
+                            val valueTokenForErrorLine = look.line
+                            
+                            if (directiveText == "DB" || directiveText == "BYTE") {
+                                if (look.kind == Token.Kind.STRING) {
+                                    val strToken = eat(Token.Kind.STRING)
+                                    val charCodes = parseString(strToken.text)
+                                    for (charCode in charCodes) {
+                                        if (charCode > UByte.MAX_VALUE) error("Line ${strToken.line}: Character code $charCode (0x${charCode.toString(16)}) in string for '$symbolName' out of 8-bit range for $directiveText")
+                                        mem.writeByte(dataOffset, charCode.toUByte())
+                                        dataOffset += 1
+                                    }
+                                    if (charCodes.isNotEmpty()) valuesProcessed++ // Count the whole string as one item in a comma list
+                                    else if (strToken.text.length <=2) valuesProcessed++ // handles "" or '' as one item
+
+                                } else { // Handle single byte: number, '?', or char literal
+                                    val value = parseDataValue(symbolName, directiveText, valueTokenForErrorLine)
+                                    if (value > UByte.MAX_VALUE) error("Line $valueTokenForErrorLine: Value $value (0x${value.toString(16)}) out of 8-bit unsigned range for $directiveText for '$symbolName'")
+                                    mem.writeByte(dataOffset, value.toUByte())
+                                    dataOffset += 1
+                                    valuesProcessed++
+                                }
+                            } else if (directiveText == "DW" || directiveText == "WORD") {
+                                if (look.kind == Token.Kind.STRING) error("Line $valueTokenForErrorLine: String literals like \"${look.text}\" are not directly supported for $directiveText. Use DB/BYTE or individual char codes.")
+                                val value = parseDataValue(symbolName, directiveText, valueTokenForErrorLine)
+                                if (value > UShort.MAX_VALUE) error("Line $valueTokenForErrorLine: Value $value (0x${value.toString(16)}) out of 16-bit unsigned range for $directiveText for '$symbolName'")
                                 mem.writeWord(dataOffset, value.toUShort())
                                 dataOffset += 2
-                            }
-                            "DD", "DWORD", "LONG" -> {
-                                // Value is already UInt, which matches writeDWord expectation
+                                valuesProcessed++
+                            } else if (directiveText == "DD" || directiveText == "DWORD" || directiveText == "LONG") {
+                                if (look.kind == Token.Kind.STRING) error("Line $valueTokenForErrorLine: String literals like \"${look.text}\" are not directly supported for $directiveText. Use DB/BYTE or individual char codes.")
+                                val value = parseDataValue(symbolName, directiveText, valueTokenForErrorLine)
+                                // Value is already UInt from parseDataValue
                                 mem.writeDWord(dataOffset, value)
                                 dataOffset += 4
+                                valuesProcessed++
+                            } else {
+                                error("Line ${typeTok.line}: Unsupported data directive '$directiveText'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")
                             }
-                            else -> error("Line ${typeTok.line}: Unsupported data directive '${typeTok.text}'. Supported: DB, BYTE, DW, WORD, DD, DWORD, LONG")
+                        } while (tryEat(Token.Kind.COMMA) != null)
+
+                        if (valuesProcessed == 0 && !( (directiveText == "DB" || directiveText == "BYTE") && look.kind == Token.Kind.STRING && parseString(look.text).isEmpty()) ) {
+                             error("Line ${typeTok.line}: Data directive '$directiveText' for '$symbolName' requires at least one value, but none were parsed or string was empty.")
                         }
+
                         while (!isNewlineOrEOF()) look = lex.nextToken()
                         tryEat(Token.Kind.NEWLINE)
                     }
                 }
+                // Handle other tokens like comments if they are tokenized separately
+                // and not just consumed by "while (!isNewlineOrEOF())"
                 else -> { 
+                    // This case handles unexpected tokens at the start of a line,
+                    // or lines that are entirely comments if your lexer emits a COMMENT token.
+                    // If comments are just skipped by the lexer or consumed by `while(!isNewlineOrEOF())`
+                    // in previous branches, this might not be hit often.
+                    val errToken = look
+                    // Consume the unexpected token and the rest of the line to prevent infinite loops
                     while (!isNewlineOrEOF()) look = lex.nextToken()
                     tryEat(Token.Kind.NEWLINE)
+                    // Optionally, you could error here or log a warning if strict parsing is needed.
+                    // error("Line ${errToken.line}: Unexpected token ${errToken.kind} ('${errToken.text}') at start of line or in unexpected place.")
                 }
             }
+        }
+    }
+
+    // Helper function to parse a single data value (number, '?', char literal)
+    private fun parseDataValue(symbolName: String, directiveText: String, errorLine: Int): UInt {
+        return if (look.kind == Token.Kind.ID && look.text == "?") {
+            eat(Token.Kind.ID) // Consume '?'
+            0u // Represents uninitialized data
+        } else if (look.kind == Token.Kind.NUMBER) {
+            val numToken = eat(Token.Kind.NUMBER)
+            parseImmediate(numToken.text)
+        } else if (look.kind == Token.Kind.ID) { // Handles char literals like 'A' or 'c' etc.
+            val idValToken = eat(Token.Kind.ID)
+            try {
+                parseImmediate(idValToken.text) // parseImmediate handles single char literals
+            } catch (e: NumberFormatException) {
+                error("Line ${idValToken.line}: Invalid value '${idValToken.text}' for data directive '$directiveText' for '$symbolName'. Expected number, '?', or char literal. Error: ${e.message}")
+            }
+        } else {
+            error("Line $errorLine: Data directive '$directiveText' for '$symbolName' expects a value (e.g., number, '?', char literal, or string for DB/BYTE) but found ${look.kind} ('${look.text}').")
         }
     }
 }

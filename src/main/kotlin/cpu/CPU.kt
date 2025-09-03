@@ -137,15 +137,21 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         }
         is MemOp -> {
             val baseValue = op.base?.let { get32(it) } ?: 0u
+            val indexValue = op.index?.let { get32(it) } ?: 0u
+            val scaleValue = op.scale ?: 1u // Default scale to 1 if not specified
             val displacement = op.disp ?: 0u
-            val address = baseValue + displacement
-            if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) {
+
+            val scaledIndex = indexValue * scaleValue
+            val address = baseValue + scaledIndex + displacement
+
+            if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) { // Assuming DWORD access
                 error("Memory read out of bounds: Addr=0x${address.toString(16)}, MemSize=0x${mem.bytes.toString(16)}")
             }
             mem.readDWord(address.toLong())
         }
         is LabelOp -> labels[op.name] ?: error("Undefined label: ${op.name}")
     }
+
     private fun write(op: Operand, value: UInt) {
         when (op) {
             is RegOp -> when (op.reg) {
@@ -155,9 +161,14 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
             }
             is MemOp -> {
                 val baseValue = op.base?.let { get32(it) } ?: 0u
+                val indexValue = op.index?.let { get32(it) } ?: 0u
+                val scaleValue = op.scale ?: 1u // Default scale to 1 if not specified
                 val displacement = op.disp ?: 0u
-                val address = baseValue + displacement
-                if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) {
+
+                val scaledIndex = indexValue * scaleValue
+                val address = baseValue + scaledIndex + displacement
+
+                if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) { // Assuming DWORD access
                     error("Memory write out of bounds: Addr=0x${address.toString(16)}, MemSize=0x${mem.bytes.toString(16)}")
                 }
                 mem.writeDWord(address.toLong(), value)
@@ -329,7 +340,11 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
         EIP = startAddress
         var steps = 0
 
+        println(program.joinToString("\n") { it.toString() })
+        println()
+
         while (EIP < program.size.toUInt() && steps < maxSteps) {
+            println("Executing at EIP=${EIP.toString(16)}")
             if (EIP.toInt() >= program.size) {
                 println("Program execution stopped: EIP (0x${EIP.toString(16)}) went out of program bounds (0x${program.size.toUInt().toString(16)}).")
                 break
@@ -371,11 +386,11 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
     fun set(r: Reg,v:UInt) { write(RegOp(r),v) }
 
     companion object {
-        const val RESET = "\u001B[0m"
-        const val RED = "\u001B[31m"
-        const val GREEN = "\u001B[32m"
-        const val YELLOW = "\u001B[33m"
-        const val BLUE = "\u001B[34m"
+        const val RESET = "[0m"
+        const val RED = "[31m"
+        const val GREEN = "[32m"
+        const val YELLOW = "[33m"
+        const val BLUE = "[34m"
     }
 
     /**
@@ -432,7 +447,7 @@ fun main() {
         // MOV EDI, [0x100]
         cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EDI), MemOp(null, dataAddress)))
         cpu.printRegisters()
-        println("Value at mem[0x100]: 0x${mem.readDWord(dataAddress.toInt()).toString(16)}")
+        println("Value at mem[0x100]: 0x${mem.readDWord(dataAddress.toLong()).toString(16)}")
         println("---------------------------------")
     } else {
         println("Skipping memory write/read test as address 0x100 is out of bounds for the current memory size.")

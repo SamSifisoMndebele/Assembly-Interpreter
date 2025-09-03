@@ -129,13 +129,13 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
 
     // === Operand access ===
     private fun read(op: Operand): UInt = when (op) {
-        is ImmOp -> op.value
-        is RegOp -> when (op.reg) {
+        is Immediate -> op.value
+        is Register -> when (op.reg) {
             AL, AH, BL, BH, CL, CH, DL, DH -> get8(op.reg).toUInt()
             AX, BX, CX, DX, SI, DI, BP, SP -> get16(op.reg).toUInt()
             else -> get32(op.reg)
         }
-        is MemOp -> {
+        is Operand.Memory -> {
             val baseValue = op.base?.let { get32(it) } ?: 0u
             val indexValue = op.index?.let { get32(it) } ?: 0u
             val scaleValue = op.scale ?: 1u // Default scale to 1 if not specified
@@ -149,17 +149,17 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
             }
             mem.readDWord(address.toLong())
         }
-        is LabelOp -> labels[op.name] ?: error("Undefined label: ${op.name}")
+        is Label -> labels[op.name] ?: error("Undefined label: ${op.name}")
     }
 
     private fun write(op: Operand, value: UInt) {
         when (op) {
-            is RegOp -> when (op.reg) {
+            is Register -> when (op.reg) {
                 AL, AH, BL, BH, CL, CH, DL, DH -> set8(op.reg, (value and 0xFFu).toUByte())
                 AX, BX, CX, DX, SI, DI, BP, SP -> set16(op.reg, (value and 0xFFFFu).toUShort())
                 else -> set32(op.reg, value)
             }
-            is MemOp -> {
+            is Operand.Memory -> {
                 val baseValue = op.base?.let { get32(it) } ?: 0u
                 val indexValue = op.index?.let { get32(it) } ?: 0u
                 val scaleValue = op.scale ?: 1u // Default scale to 1 if not specified
@@ -383,7 +383,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
      * @param r The [Reg] enum representing the register to write to.
      * @param v The [UInt] value to write to the register.
      */
-    fun set(r: Reg,v:UInt) { write(RegOp(r),v) }
+    fun set(r: Reg,v:UInt) { write(Register(r),v) }
 
     companion object {
         const val RESET = "[0m"
@@ -421,12 +421,12 @@ fun main() {
     println("------------------------------------")
 
     val program = listOf(
-        Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EAX), ImmOp(0xAu)), // MOV EAX, 0xA
-        Instruction.InstructionOne(Operation.OperationOne.PUSH, RegOp(EAX)),              // PUSH EAX
-        Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EBX), ImmOp(0xBu)), // MOV EBX, 0xB
-        Instruction.InstructionOne(Operation.OperationOne.PUSH, RegOp(EBX)),              // PUSH EBX
-        Instruction.InstructionOne(Operation.OperationOne.POP, RegOp(ECX)),               // POP ECX (should be 0xB)
-        Instruction.InstructionOne(Operation.OperationOne.POP, RegOp(EDX))                // POP EDX (should be 0xA)
+        Instruction.InstructionTwo(Operation.OperationTwo.MOV, Register(EAX), Immediate(0xAu)), // MOV EAX, 0xA
+        Instruction.InstructionOne(Operation.OperationOne.PUSH, Register(EAX)),              // PUSH EAX
+        Instruction.InstructionTwo(Operation.OperationTwo.MOV, Register(EBX), Immediate(0xBu)), // MOV EBX, 0xB
+        Instruction.InstructionOne(Operation.OperationOne.PUSH, Register(EBX)),              // PUSH EBX
+        Instruction.InstructionOne(Operation.OperationOne.POP, Register(ECX)),               // POP ECX (should be 0xB)
+        Instruction.InstructionOne(Operation.OperationOne.POP, Register(EDX))                // POP EDX (should be 0xA)
     )
     
     println("--- Running Program ---")
@@ -443,9 +443,9 @@ fun main() {
     if (dataAddress + 3u < mem.bytes.toUInt()) {
         println("--- Testing Memory Write/Read ---")
         // MOV [0x100], EAX (where EAX is 0xA after first POP)
-        cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, MemOp(null, dataAddress), RegOp(EDX))) 
+        cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, Memory(null, dataAddress), Register(EDX)))
         // MOV EDI, [0x100]
-        cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, RegOp(EDI), MemOp(null, dataAddress)))
+        cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, Register(EDI), Memory(null, dataAddress)))
         cpu.printRegisters()
         println("Value at mem[0x100]: 0x${mem.readDWord(dataAddress.toLong()).toString(16)}")
         println("---------------------------------")

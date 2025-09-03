@@ -11,7 +11,7 @@ sealed class Operand {
      *
      * @property reg The register being used as an operand.
      */
-    data class RegOp(val reg: Reg): Operand() {
+    data class Register(val reg: Reg): Operand() {
         override fun toString(): String = reg.name
     }
 
@@ -20,7 +20,7 @@ sealed class Operand {
      *
      * @property value The 32-bit integer value.
      */
-    data class ImmOp(val value: UInt): Operand() {
+    data class Immediate(val value: UInt): Operand() {
         override fun toString(): String = value.toString(radix = 16)+"h"
     }
 
@@ -30,7 +30,7 @@ sealed class Operand {
      *
      * @property name The name of the label.
      */
-    data class LabelOp(val name: String): Operand() {
+    data class Label(val name: String): Operand() {
         override fun toString(): String = name
     }
 
@@ -40,7 +40,7 @@ sealed class Operand {
      * @property base An optional base register used in address calculation (e.g., `[BX]`, `[EAX + disp]`).
      * @property disp An optional displacement value used in address calculation (e.g., `[1234h]`, `[BX + 8]`).
      */
-    data class MemOp(
+    data class Memory(
         val base: Reg?,
         val disp: UInt? = null, // Displacement
         val index: Reg? = null, // Index register

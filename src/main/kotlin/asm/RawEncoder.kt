@@ -43,7 +43,7 @@ fun encode(instruction: Instruction): UByteArray = when (instruction) {
                             ubyteArrayOf(0x89.toUByte(), modRM)
                         }
                         is Operand.Memory -> TODO("MOV reg32, mem32 not implemented yet")
-                        is Operand.LabelOp -> TODO("MOV reg32, mem32 not implemented yet")
+                        is Operand.Label -> TODO("MOV reg32, mem32 not implemented yet")
                     }
                 }
                 is Operand.Memory -> error("MOV mem32, ... not implemented yet") // TODO

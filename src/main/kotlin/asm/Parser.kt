@@ -180,18 +180,18 @@ class Parser(src: String, private val mem: Memory) {
             Token.Kind.ID -> {
                 val idTok = eat(Token.Kind.ID)
                 val tokenText = idTok.text
-                parseReg(tokenText)?.let { return Operand.RegOp(it) }
+                parseReg(tokenText)?.let { return Operand.Register(it) }
                 symbolTable[tokenText]?.let { offset -> // offset is UInt
-                    return Operand.MemOp(null, offset) // MemOp expects UInt?
+                    return Operand.Memory(null, offset) // MemOp expects UInt?
                 }
                 return try {
                     val immediateValue = parseImmediate(tokenText) // returns UInt
-                    Operand.ImmOp(immediateValue) // ImmOp expects UInt
+                    Operand.Immediate(immediateValue) // ImmOp expects UInt
                 } catch (_: NumberFormatException) {
-                    Operand.LabelOp(tokenText)
+                    Operand.Label(tokenText)
                 }
             }
-            Token.Kind.NUMBER -> Operand.ImmOp(parseImmediate(eat(Token.Kind.NUMBER).text)) // parseImmediate returns UInt
+            Token.Kind.NUMBER -> Operand.Immediate(parseImmediate(eat(Token.Kind.NUMBER).text)) // parseImmediate returns UInt
             Token.Kind.STRING -> { // Added to handle strings as direct operands if necessary, though data section is primary
                 val strTok = eat(Token.Kind.STRING)
                 // This typically would be an error for most instruction operands or needs specific handling.
@@ -236,7 +236,7 @@ class Parser(src: String, private val mem: Memory) {
                     else -> error("Line ${look.line}: bad memory operand, expected ID or NUMBER inside brackets")
                 }
                 eat(Token.Kind.RBRACK)
-                Operand.MemOp(base, disp) // disp is UInt?
+                Operand.Memory(base, disp) // disp is UInt?
             }
             else -> error("Line ${look.line}: unexpected token ${look.kind}")
         }

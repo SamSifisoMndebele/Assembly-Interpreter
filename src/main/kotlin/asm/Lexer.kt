@@ -26,7 +26,7 @@ class Lexer(private val source: String) {
     private val hexPattern = Pattern.compile("^(?:0[xX][0-9a-fA-F]+|[0-9a-fA-F]+[hH])")
     private val binPattern = Pattern.compile("^(?:0[bB][01]+|[01]+[bB])")
     private val octPattern = Pattern.compile("^(?:0[qQoO][0-7]+|[0-7]+[qQoO])")
-    private val decPattern = Pattern.compile("^[-+]?[0-9]+(?:_[0-9]+)*")
+    private val decPattern = Pattern.compile("^[-+]?[0-9]+(?:_[0-9]+)*[dD]?")
 
     /**
      * Returns the next token from the input source code.
@@ -49,15 +49,17 @@ class Lexer(private val source: String) {
             val ch = line[colIdx]
             when {
                 ch.isWhitespace() -> { colIdx++; continue }
-                ch == '[' -> { colIdx++; return Token(Token.Kind.LBRACK, "[", lineIdx + 1)
-                }
-                ch == ']' -> { colIdx++; return Token(Token.Kind.RBRACK, "]", lineIdx + 1)
-                }
-                ch == '+' -> { colIdx++; return Token(Token.Kind.PLUS, "+", lineIdx + 1)
-                }
-                ch == ',' -> { colIdx++; return Token(Token.Kind.COMMA, ",", lineIdx + 1)
-                }
-                ch == ':' -> { colIdx++; return Token(Token.Kind.COLON, ":", lineIdx + 1)
+                ch == '[' -> { colIdx++; return Token(Token.Kind.LBRACK, "[", lineIdx + 1) }
+                ch == ']' -> { colIdx++; return Token(Token.Kind.RBRACK, "]", lineIdx + 1) }
+                ch == '+' -> { colIdx++; return Token(Token.Kind.PLUS, "+", lineIdx + 1) }
+                ch == ',' -> { colIdx++; return Token(Token.Kind.COMMA, ",", lineIdx + 1) }
+                ch == ':' -> { colIdx++; return Token(Token.Kind.COLON, ":", lineIdx + 1) }
+                ch == '"' || ch == '\'' -> {
+                    val start = ++colIdx
+                    while (colIdx < line.length && line[colIdx] != ch) colIdx++
+                    if (colIdx >= line.length) error("Unterminated string literal")
+                    colIdx++
+                    return Token(Token.Kind.STRING, line.substring(start, colIdx-1), lineIdx + 1)
                 }
                 ch.isLetter() || ch == '_' || ch == '.' -> {
                     val start = colIdx
@@ -66,36 +68,41 @@ class Lexer(private val source: String) {
                     val text = line.substring(start, colIdx)
                     return Token(Token.Kind.ID, text, lineIdx + 1)
                 }
-                ch.isDigit() || (ch == '-' && colIdx + 1 < line.length && line[colIdx+1].isDigit()) -> {
+                ch.isDigit() || ((ch == '-' || ch == '+') && colIdx + 1 < line.length && line[colIdx+1].isDigit()) -> {
                     // Number: decimal, hex, or binary
                     val start = colIdx
                     // Try to match hex
                     var m = hexPattern.matcher(line.substring(start))
                     if (m.lookingAt()) {
                         colIdx += m.end()
-                        return Token(Token.Kind.NUMBER, line.substring(start, colIdx), lineIdx + 1)
+                        return Token(Token.Kind.NUMBER, line.substring(start, colIdx)
+                            .trimStart('0').trim('x', 'X', 'h', 'H')+'h', lineIdx + 1)
                     }
                     // Try to match binary
                     m = binPattern.matcher(line.substring(start))
                     if (m.lookingAt()) {
                         colIdx += m.end()
-                        return Token(Token.Kind.NUMBER, line.substring(start, colIdx), lineIdx + 1)
+                        return Token(Token.Kind.NUMBER, line.substring(start, colIdx)
+                            .trimStart('0').trim('b', 'B')+'b', lineIdx + 1)
                     }
                     // Try to match octal
                     m = octPattern.matcher(line.substring(start))
                     if (m.lookingAt()) {
                         colIdx += m.end()
-                        return Token(Token.Kind.NUMBER, line.substring(start, colIdx), lineIdx + 1)
+                        return Token(Token.Kind.NUMBER, line.substring(start, colIdx)
+                            .trimStart('0').trim('q', 'Q', 'o', 'O')+'q', lineIdx + 1)
                     }
                     // Then try decimal
-                    m = decPattern.matcher(line)
-                    if (m.find(start) && m.start() == start) {
-                        colIdx = m.end()
-                        return Token(Token.Kind.NUMBER, line.substring(start, colIdx), lineIdx + 1)
+                    m = decPattern.matcher(line.substring(start))
+                    if (m.lookingAt()) {
+                        colIdx += m.end()
+                        return Token(Token.Kind.NUMBER, line.substring(start, colIdx)
+                            .trimStart('0').trim('d', 'D').padStart(1, '0')+'d', lineIdx + 1)
                     }
                     // If none, then it's an error or single digit ID.
                     // This part should ideally not be reached if patterns are comprehensive
                     colIdx++
+                    println("digit id: "+line.substring(start, colIdx))
                     return Token(Token.Kind.ID, line.substring(start, colIdx), lineIdx + 1) // Treat as ID for now
                 }
                 else -> {

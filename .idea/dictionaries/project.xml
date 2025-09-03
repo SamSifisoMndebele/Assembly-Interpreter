@@ -25,7 +25,10 @@
       <w>movsd</w>
       <w>movsw</w>
       <w>movw</w>
+      <w>popa</w>
+      <w>popad</w>
       <w>pusha</w>
+      <w>pushad</w>
       <w>rbrack</w>
       <w>scas</w>
       <w>scasb</w>

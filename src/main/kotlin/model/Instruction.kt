@@ -2,6 +2,11 @@
 
 package model
 
+import model.Instruction.*
+import model.Operand.*
+import model.Operation.*
+import kotlin.collections.addAll
+
 /**
  * Represents a single assembly language instruction or a label definition.
  *
@@ -25,7 +30,6 @@ sealed class Instruction(
     abstract fun encode(): UByteArray
     abstract override fun toString(): String
 
-
     /**
      * Represents an instruction with no operands.
      * Examples: `nop`, `ret`.
@@ -34,12 +38,12 @@ sealed class Instruction(
      * @property line The line number in the source file.
      */
     data class InstructionZero(
-        val operation: Operation.OperationZero,
+        val operation: OperationZero,
         override val line: Int = -1
     ) : Instruction(line) {
         override fun encode(): UByteArray {
             return when (this.operation) {
-                Operation.OperationZero.NOP -> ubyteArrayOf(0x90.toUByte())
+                OperationZero.NOP -> ubyteArrayOf(0x90.toUByte())
                 else -> error("Unsupported zero-op instruction: ${this.operation}")
             }
         }
@@ -56,14 +60,14 @@ sealed class Instruction(
      * @property line The line number in the source file.
      */
     data class InstructionOne(
-        val operation: Operation.OperationOne,
+        val operation: OperationOne,
         val operand: Operand,
         override val line: Int = -1
     ) : Instruction(line) {
         override fun encode(): UByteArray {
             return when (this.operation) {
-                Operation.OperationOne.PUSH -> {
-                    val imm = (this.operand as Operand.Immediate).value
+                OperationOne.PUSH -> {
+                    val imm = (this.operand as Immediate).value
                     ubyteArrayOf(0x68.toUByte()) + uIntToBytes(imm)
                 }
                 else -> error("Unsupported one-op instruction: ${this.operation}")
@@ -83,33 +87,33 @@ sealed class Instruction(
      * @property line The line number in the source file.
      */
     data class InstructionTwo(
-        val operation: Operation.OperationTwo,
+        val operation: OperationTwo,
         val dst: Operand,
         val src: Operand,
         override val line: Int = -1
     ) : Instruction(line) {
         override fun encode(): UByteArray {
             return when (this.operation) {
-                Operation.OperationTwo.MOV -> {
+                OperationTwo.MOV -> {
                     val dst = this.dst
                     val src = this.src
                     when (dst) {
-                        is Operand.Register -> {
+                        is Register -> {
                             when (src) {
-                                is Operand.Immediate -> {
+                                is Immediate -> {
                                     val imm = src.value
                                     val opcode = (0xB8 + dst.reg.code.toInt()).toUByte()
-                                    ubyteArrayOf(opcode) + Instruction.uIntToBytes(imm)
+                                    ubyteArrayOf(opcode) + uIntToBytes(imm)
                                 }
-                                is Operand.Register -> {
+                                is Register -> {
                                     val modRM = (0b11_000_000 or (src.reg.code.toInt() shl 3) or dst.reg.code.toInt()).toUByte()
                                     ubyteArrayOf(0x89.toUByte(), modRM)
                                 }
-                                is Operand.Memory -> TODO("MOV reg32, mem32 not implemented yet")
-                                is Operand.Label -> TODO("MOV reg32, mem32 not implemented yet")
+                                is Memory -> TODO("MOV reg32, mem32 not implemented yet")
+                                is Label -> TODO("MOV reg32, mem32 not implemented yet")
                             }
                         }
-                        is Operand.Memory -> error("MOV mem32, ... not implemented yet")
+                        is Memory -> error("MOV mem32, ... not implemented yet")
                         else -> error("Unsupported MOV destination operand: $dst")
                     }
                 }
@@ -131,12 +135,12 @@ sealed class Instruction(
             while (i < bytes.size) {
                 when (val currentOpcode = bytes[i].toInt() and 0xFF) {
                     0x90 -> {
-                        result.add(InstructionZero(Operation.OperationZero.NOP, i))
+                        result.add(InstructionZero(OperationZero.NOP, i))
                         i += 1
                     }
                     0x68 -> {
                         val imm = bytes.copyOfRange(i + 1, i + 5).toUInt() // Uses companion extension
-                        result.add(InstructionOne(Operation.OperationOne.PUSH, Operand.Immediate(imm), i))
+                        result.add(InstructionOne(OperationOne.PUSH, Immediate(imm), i))
                         i += 5
                     }
                     in 0xB8..0xBF -> {
@@ -144,7 +148,7 @@ sealed class Instruction(
                         val imm = bytes.copyOfRange(i + 1, i + 5).toUInt() // Uses companion extension
                         val dstReg = r32OpcodeMap[regOpcode]
                             ?: error("Unknown 32-bit destination register opcode: $regOpcode for MOV r32, imm32 instruction at offset $i")
-                        result.add(InstructionTwo(Operation.OperationTwo.MOV, Operand.Register(dstReg), Operand.Immediate(imm), i))
+                        result.add(InstructionTwo(OperationTwo.MOV, Register(dstReg), Immediate(imm), i))
                         i += 5
                     }
                     0x89 -> {
@@ -159,10 +163,10 @@ sealed class Instruction(
                             ?: error("Unknown 32-bit destination register opcode: $dstRegOpcode in ModR/M ${modRM.toString(16)} at offset $i")
                         val srcReg = r32OpcodeMap[srcRegOpcode]
                             ?: error("Unknown 32-bit source register opcode: $srcRegOpcode in ModR/M ${modRM.toString(16)} at offset $i")
-                        result.add(InstructionTwo(Operation.OperationTwo.MOV, Operand.Register(dstReg), Operand.Register(srcReg), i))
+                        result.add(InstructionTwo(OperationTwo.MOV, Register(dstReg), Register(srcReg), i))
                         i += 2
                     }
-                    else -> error("Unknown opcode: 0x${bytes[i].toUByte().toString(16)} at offset $i")
+                    else -> error("Unknown opcode: 0x${bytes[i].toString(16)} at offset $i")
                 }
             }
             return result
@@ -181,4 +185,35 @@ sealed class Instruction(
                 ((this[2].toUInt() and 0xFFu) shl 16) or
                 ((this[3].toUInt() and 0xFFu) shl 24)
     }
+}
+
+
+fun main() {
+    val instructions = listOf(
+        InstructionOne(OperationOne.PUSH, Immediate(0x12abu), 1),
+        InstructionTwo(OperationTwo.MOV, Register(Reg.EBX), Immediate(50u), 2),
+        InstructionTwo(OperationTwo.MOV, Register(Reg.EBX), Register(Reg.ECX), 3),
+        InstructionTwo(OperationTwo.MOV, Register(Reg.ECX), Register(Reg.EBX), 4),
+        InstructionTwo(OperationTwo.MOV, Register(Reg.EBX), Register(Reg.ECX), 5),
+        InstructionTwo(OperationTwo.MOV, Register(Reg.ECX), Register(Reg.EBX), 6),
+    )
+
+    val machineCodeParts = mutableListOf<String>()
+    val machineCodeFull = mutableListOf<UByte>()
+
+    println("\nInstructions:")
+    instructions.forEachIndexed { index, instruction ->
+        val encodedBytes = instruction.encode() // Changed here
+        val hexString = encodedBytes.joinToString(" ") { "%02X".format(it.toInt()) }
+        println("$instruction -> $hexString")
+        machineCodeParts.add(hexString)
+        machineCodeFull.addAll(encodedBytes.asIterable())
+    }
+
+    println("\n Full Raw x86 machine code: " + machineCodeFull.toUByteArray().joinToString(" ") { "%02X".format(it.toInt()) })
+
+    val decoded = Instruction.decode(machineCodeFull.toUByteArray()) // Changed here
+    println(" Decoded instructions:")
+    decoded.forEach(::println)
+
 }

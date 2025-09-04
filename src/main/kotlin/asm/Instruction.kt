@@ -228,7 +228,7 @@ sealed class Instruction(
                         else -> error("Unsupported CMP destination operand: $dst")
                     }
                 }
-                OperationTwo.CMPR -> {
+                OperationTwo.CMPR -> { // Same as CMP r32, r32
                     val dst = this.dst
                     val src = this.src
                     when (dst) {
@@ -322,7 +322,6 @@ sealed class Instruction(
          * @param bytes The UByteArray containing the x86 machine code.
          * @return A list of decoded {@link Instruction} objects.
          * @throws error if an unknown opcode is encountered or an unsupported addressing mode is used.
-         *               Currently supports `NOP`, `PUSH imm32`, `MOV r32, imm32`, and `MOV r32, r32`.
          */
         fun decode(bytes: UByteArray): List<Instruction> {
             val result = mutableListOf<Instruction>()
@@ -332,40 +331,196 @@ sealed class Instruction(
                 .associateBy { it.code.toInt() }
 
             while (i < bytes.size) {
+                val currentOffset = i
                 when (val currentOpcode = bytes[i].toInt() and 0xFF) {
-                    0x90 -> {
-                        result.add(InstructionZero(OperationZero.NOP, i))
+                    0x90 -> { // NOP
+                        result.add(InstructionZero(OperationZero.NOP, currentOffset))
                         i += 1
                     }
-                    0x68 -> {
-                        val imm = bytes.copyOfRange(i + 1, i + 5).toUInt() // Uses companion extension
-                        result.add(InstructionOne(OperationOne.PUSH, Immediate(imm), i))
+                    0x68 -> { // PUSH imm32
+                        val imm = bytes.copyOfRange(i + 1, i + 5).toUInt()
+                        result.add(InstructionOne(OperationOne.PUSH, Immediate(imm), currentOffset))
                         i += 5
                     }
-                    in 0xB8..0xBF -> {
+                    in 0xB8..0xBF -> { // MOV r32, imm32
                         val regOpcode = currentOpcode - 0xB8
-                        val imm = bytes.copyOfRange(i + 1, i + 5).toUInt() // Uses companion extension
+                        val imm = bytes.copyOfRange(i + 1, i + 5).toUInt()
                         val dstReg = r32OpcodeMap[regOpcode]
-                            ?: error("Unknown 32-bit destination register opcode: $regOpcode for MOV r32, imm32 instruction at offset $i")
-                        result.add(InstructionTwo(OperationTwo.MOV, Register(dstReg), Immediate(imm), i))
+                            ?: error("Unknown 32-bit destination register opcode: $regOpcode for MOV r32, imm32 instruction at offset $currentOffset")
+                        result.add(InstructionTwo(OperationTwo.MOV, Register(dstReg), Immediate(imm), currentOffset))
                         i += 5
                     }
-                    0x89 -> {
+                    0x89 -> { // MOV r/m32, r32  OR MOV r32, r/m32 (check ModR/M)
                         val modRM = bytes[i + 1].toInt()
                         val mod = (modRM shr 6) and 0b11
-                        if (mod != 0b11) {
-                            error("Unsupported MOV addressing mode (mod != 11): ${modRM.toString(16)} at offset $i")
+                        val regOpcode = (modRM shr 3) and 0b111 // Source register for MOV r/m32, r32; Destination for MOV r32, r/m32 (if r/m is memory)
+                        val rmOpcode = modRM and 0b111
+
+                        if (mod == 0b11) { // Register-direct addressing: MOV r32, r32
+                            val dstReg = r32OpcodeMap[rmOpcode]
+                                ?: error("Unknown 32-bit destination register opcode: $rmOpcode in ModR/M ${modRM.toString(16)} at offset $currentOffset")
+                            val srcReg = r32OpcodeMap[regOpcode]
+                                ?: error("Unknown 32-bit source register opcode: $regOpcode in ModR/M ${modRM.toString(16)} at offset $currentOffset")
+                            result.add(InstructionTwo(OperationTwo.MOV, Register(dstReg), Register(srcReg), currentOffset))
+                            i += 2
+                        } else if (mod == 0b00 && rmOpcode == 0b101) { // Displacement-only addressing: MOV [disp32], r32
+                            val srcReg = r32OpcodeMap[regOpcode] ?: error("Unknown 32-bit source register opcode: $regOpcode for MOV [disp32], r32 at offset $currentOffset")
+                            val disp = bytes.copyOfRange(i + 2, i + 6).toUInt()
+                            result.add(InstructionTwo(OperationTwo.MOV, Memory(null, disp), Register(srcReg), currentOffset))
+                            i += 6
+                        } else {
+                            error("Unsupported MOV 0x89 addressing mode (mod=$mod, r/m=$rmOpcode): ${modRM.toString(16)} at offset $currentOffset")
                         }
-                        val dstRegOpcode = modRM and 0b111
-                        val srcRegOpcode = (modRM shr 3) and 0b111
-                        val dstReg = r32OpcodeMap[dstRegOpcode]
-                            ?: error("Unknown 32-bit destination register opcode: $dstRegOpcode in ModR/M ${modRM.toString(16)} at offset $i")
-                        val srcReg = r32OpcodeMap[srcRegOpcode]
-                            ?: error("Unknown 32-bit source register opcode: $srcRegOpcode in ModR/M ${modRM.toString(16)} at offset $i")
-                        result.add(InstructionTwo(OperationTwo.MOV, Register(dstReg), Register(srcReg), i))
-                        i += 2
                     }
-                    else -> error("Unknown opcode: 0x${bytes[i].toString(16)} at offset $i")
+                    0x8B -> { // MOV r32, r/m32 (here, r/m must be memory)
+                        val modRM = bytes[i + 1].toInt()
+                        val mod = (modRM shr 6) and 0b11
+                        val regOpcode = (modRM shr 3) and 0b111 // Destination register
+                        val rmOpcode = modRM and 0b111
+
+                        if (mod == 0b00 && rmOpcode == 0b101) { // Displacement-only addressing: MOV r32, [disp32]
+                            val dstReg = r32OpcodeMap[regOpcode]
+                                ?: error("Unknown 32-bit destination register opcode: $regOpcode for MOV r32, [disp32] at offset $currentOffset")
+                            val disp = bytes.copyOfRange(i + 2, i + 6).toUInt()
+                            result.add(InstructionTwo(OperationTwo.MOV, Register(dstReg), Memory(null, disp), currentOffset))
+                            i += 6
+                        } else {
+                            error("Unsupported MOV 0x8B addressing mode (mod=$mod, r/m=$rmOpcode): ${modRM.toString(16)} at offset $currentOffset")
+                        }
+                    }
+                    0xC7 -> { // MOV r/m32, imm32
+                        val modRM = bytes[i + 1].toInt()
+                        val mod = (modRM shr 6) and 0b11
+                        val opcodeExtension = (modRM shr 3) and 0b111
+                        val rmOpcode = modRM and 0b111
+
+                        if (opcodeExtension == 0b000) { // Check for /0 opcode extension
+                            if (mod == 0b00 && rmOpcode == 0b101) { // Displacement-only addressing: MOV [disp32], imm32
+                                val disp = bytes.copyOfRange(i + 2, i + 6).toUInt()
+                                val imm = bytes.copyOfRange(i + 6, i + 10).toUInt()
+                                result.add(InstructionTwo(OperationTwo.MOV, Memory(null, disp), Immediate(imm), currentOffset))
+                                i += 10
+                            } else {
+                                error("Unsupported MOV 0xC7 /0 addressing mode (mod=$mod, r/m=$rmOpcode): ${modRM.toString(16)} at offset $currentOffset")
+                            }
+                        } else {
+                            error("Unsupported MOV 0xC7 opcode extension: $opcodeExtension at offset $currentOffset")
+                        }
+                    }
+                    0x01 -> { // ADD r/m32, r32
+                        val modRM = bytes[i + 1].toInt()
+                        val mod = (modRM shr 6) and 0b11
+                        val srcRegOpcode = (modRM shr 3) and 0b111
+                        val dstRmOpcode = modRM and 0b111
+
+                        if (mod == 0b11) { // Register-direct: ADD r32, r32
+                            val dstReg = r32OpcodeMap[dstRmOpcode]
+                                ?: error("Unknown 32-bit destination register opcode: $dstRmOpcode for ADD r32, r32 at offset $currentOffset")
+                            val srcReg = r32OpcodeMap[srcRegOpcode]
+                                ?: error("Unknown 32-bit source register opcode: $srcRegOpcode for ADD r32, r32 at offset $currentOffset")
+                            result.add(InstructionTwo(OperationTwo.ADD, Register(dstReg), Register(srcReg), currentOffset))
+                            i += 2
+                        } else {
+                            error("Unsupported ADD 0x01 addressing mode (mod=$mod): ${modRM.toString(16)} at offset $currentOffset")
+                        }
+                    }
+                    0x81 -> { // ADD/CMP/SUB r/m32, imm32
+                        val modRM = bytes[i + 1].toInt()
+                        val mod = (modRM shr 6) and 0b11
+                        val opcodeExtension = (modRM shr 3) and 0b111
+                        val rmOpcode = modRM and 0b111
+
+                        if (mod == 0b11) { // Register-direct addressing
+                            val dstReg = r32OpcodeMap[rmOpcode]
+                                ?: error("Unknown 32-bit destination register opcode: $rmOpcode for Op 0x81 at offset $currentOffset")
+                            val imm = bytes.copyOfRange(i + 2, i + 6).toUInt()
+                            when (opcodeExtension) {
+                                0b000 -> result.add(InstructionTwo(OperationTwo.ADD, Register(dstReg), Immediate(imm), currentOffset)) // ADD r32, imm32
+                                0b101 -> result.add(InstructionTwo(OperationTwo.SUB, Register(dstReg), Immediate(imm), currentOffset)) // SUB r32, imm32
+                                0b111 -> result.add(InstructionTwo(OperationTwo.CMP, Register(dstReg), Immediate(imm), currentOffset)) // CMP r32, imm32
+                                else -> error("Unsupported 0x81 opcode extension $opcodeExtension at offset $currentOffset")
+                            }
+                            i += 6
+                        } else {
+                            error("Unsupported 0x81 addressing mode (mod=$mod): ${modRM.toString(16)} at offset $currentOffset")
+                        }
+                    }
+                    0x39 -> { // CMP r/m32, r32
+                        val modRM = bytes[i + 1].toInt()
+                        val mod = (modRM shr 6) and 0b11
+                        val srcRegOpcode = (modRM shr 3) and 0b111
+                        val dstRmOpcode = modRM and 0b111
+
+                        if (mod == 0b11) { // Register-direct: CMP r32, r32
+                            val dstReg = r32OpcodeMap[dstRmOpcode]
+                                ?: error("Unknown 32-bit destination register opcode: $dstRmOpcode for CMP r32, r32 at offset $currentOffset")
+                            val srcReg = r32OpcodeMap[srcRegOpcode]
+                                ?: error("Unknown 32-bit source register opcode: $srcRegOpcode for CMP r32, r32 at offset $currentOffset")
+                            // Also handles CMPR as they have the same opcode and encoding
+                            result.add(InstructionTwo(OperationTwo.CMP, Register(dstReg), Register(srcReg), currentOffset))
+                            i += 2
+                        } else {
+                            error("Unsupported CMP 0x39 addressing mode (mod=$mod): ${modRM.toString(16)} at offset $currentOffset")
+                        }
+                    }
+                     0x29 -> { // SUB r/m32, r32
+                        val modRM = bytes[i + 1].toInt()
+                        val mod = (modRM shr 6) and 0b11
+                        val srcRegOpcode = (modRM shr 3) and 0b111
+                        val dstRmOpcode = modRM and 0b111
+
+                        if (mod == 0b11) { // Register-direct: SUB r32, r32
+                            val dstReg = r32OpcodeMap[dstRmOpcode]
+                                ?: error("Unknown 32-bit destination register opcode: $dstRmOpcode for SUB r32, r32 at offset $currentOffset")
+                            val srcReg = r32OpcodeMap[srcRegOpcode]
+                                ?: error("Unknown 32-bit source register opcode: $srcRegOpcode for SUB r32, r32 at offset $currentOffset")
+                            result.add(InstructionTwo(OperationTwo.SUB, Register(dstReg), Register(srcReg), currentOffset))
+                            i += 2
+                        } else {
+                            error("Unsupported SUB 0x29 addressing mode (mod=$mod): ${modRM.toString(16)} at offset $currentOffset")
+                        }
+                    }
+                    0x87 -> { // XCHG r/m32, r32 or XCHG r32, r/m32
+                        val modRM = bytes[i + 1].toInt()
+                        val mod = (modRM shr 6) and 0b11
+                        val regOpcode = (modRM shr 3) and 0b111 // This is one register
+                        val rmOpcode = modRM and 0b111      // This is the other register or part of memory addressing
+
+                        if (mod == 0b11) { // XCHG r32, r32
+                            // In this form, reg field is one register, r/m field is the other.
+                            // The encoded instruction 0x87 C_D means XCHG regC, regD (where D is from r/m field)
+                            val reg1 = r32OpcodeMap[regOpcode]
+                                ?: error("Unknown 32-bit register (reg field): $regOpcode for XCHG r32,r32 at offset $currentOffset")
+                            val reg2 = r32OpcodeMap[rmOpcode]
+                                ?: error("Unknown 32-bit register (r/m field): $rmOpcode for XCHG r32,r32 at offset $currentOffset")
+                            result.add(InstructionTwo(OperationTwo.XCHG, Register(reg2), Register(reg1), currentOffset))
+                            i += 2
+                        } else if (mod == 0b00 && rmOpcode == 0b101) { // XCHG r32, [disp32] or XCHG [disp32], r32
+                                                                    // For 0x87, the register is always in the REG field of ModR/M
+                            val reg = r32OpcodeMap[regOpcode]
+                                ?: error("Unknown 32-bit register: $regOpcode for XCHG with memory at offset $currentOffset")
+                            val disp = bytes.copyOfRange(i + 2, i + 6).toUInt()
+                            // The source/dest distinction for XCHG r,m vs m,r is subtle in encoding but clear in our model
+                            // We need to infer from the original instruction structure if possible, but here we only have bytes.
+                            // The byte sequence is the same for XCHG r32, [disp32] and XCHG [disp32], r32
+                            // Let's assume the register from ModR/M's REG field is DST if the other is MEM for now.
+                            // This might need adjustment if parsing from a specific textual form to bytes.
+                            // For decoding, we can choose one form; the main.kt example has XCHG reg, mem and XCHG mem, reg
+                            // XCHG ECX, Memory(Reg.EDX, 10u) -> 87 0A xx xx xx xx (EDX is not part of ModRM reg field)
+                            // XCHG Memory(Reg.EDX, 10u), ECX -> 87 0A xx xx xx xx (ECX is ModRM reg field)
+                            // The current encode logic for XCHG r32, m32 uses dst.reg for regCode.
+                            // The current encode logic for XCHG m32, r32 uses src.reg for regCode.
+                            // So, the reg field in ModR/M byte points to the register operand.
+                            // The instruction can be interpreted as XCHG Register(reg), Memory(...) OR XCHG Memory(...), Register(reg)
+                            // The order is ambiguous from bytes alone without knowing which operand was "first" in the original.
+                            // We will decode as XCHG Register(reg), Memory(...) as a convention.
+                             result.add(InstructionTwo(OperationTwo.XCHG, Register(reg), Memory(null, disp), currentOffset))
+                            i += 6
+                        } else {
+                            error("Unsupported XCHG 0x87 addressing mode (mod=$mod, r/m=$rmOpcode): ${modRM.toString(16)} at offset $currentOffset")
+                        }
+                    }
+                    else -> error("Unknown opcode: 0x${bytes[i].toString(16)} at offset $currentOffset")
                 }
             }
             return result
@@ -394,8 +549,18 @@ fun main() {
         InstructionTwo(OperationTwo.MOV, Register(Reg.EBX), Register(Reg.ECX), 3),
         InstructionTwo(OperationTwo.MOV, Register(Reg.ECX), Register(Reg.EBX), 4),
         InstructionTwo(OperationTwo.MOV, Register(Reg.EBX), Register(Reg.ECX), 5),
-        InstructionTwo(OperationTwo.XCHG, Register(Reg.ECX), Register(Reg.EBX), 6),
-        InstructionTwo(OperationTwo.XCHG, Register(Reg.ECX), Memory(Reg.EDX, 10u), 7),
+        InstructionTwo(OperationTwo.XCHG, Register(Reg.ECX), Register(Reg.EBX), 6), // 87 D9
+        InstructionTwo(OperationTwo.XCHG, Register(Reg.ECX), Memory(null, 10u), 7), // ECX is reg field (001), 87 0D 0A000000
+        InstructionTwo(OperationTwo.MOV, Memory(null, 0x100u), Register(Reg.EAX), 8), // EAX is reg field (000), 89 05 00010000
+        InstructionTwo(OperationTwo.MOV, Register(Reg.EDX), Memory(null, 0x200u), 9), // EDX is reg field (010), 8B 15 00020000
+        InstructionTwo(OperationTwo.MOV, Memory(null, 0x300u), Immediate(0x1234u), 10), // C7 05 00030000 34120000
+        InstructionTwo(OperationTwo.ADD, Register(Reg.EAX), Immediate(100u), 11), // 81 C0 64000000
+        InstructionTwo(OperationTwo.ADD, Register(Reg.EAX), Register(Reg.EBX), 12), // 01 D8
+        InstructionTwo(OperationTwo.CMP, Register(Reg.ECX), Immediate(200u), 13), // 81 F9 C8000000
+        InstructionTwo(OperationTwo.CMP, Register(Reg.ECX), Register(Reg.EDX), 14), // 39 D1
+        InstructionTwo(OperationTwo.SUB, Register(Reg.ESI), Register(Reg.EDI), 15), // 29 FE
+        InstructionTwo(OperationTwo.SUB, Register(Reg.EDI), Immediate(5u), 16), // 81 EF 05000000
+        InstructionTwo(OperationTwo.XCHG, Memory(null, 0x400u), Register(Reg.ESP),17) // ESP is reg field (100), 87 25 00040000
     )
 
     val machineCodeParts = mutableListOf<String>()
@@ -403,7 +568,7 @@ fun main() {
 
     println("\nInstructions:")
     instructions.forEachIndexed { index, instruction ->
-        val encodedBytes = instruction.encode() // Changed here
+        val encodedBytes = instruction.encode() 
         val hexString = encodedBytes.joinToString(" ") { "%02X".format(it.toInt()) }
         println("$instruction -> $hexString")
         machineCodeParts.add(hexString)
@@ -412,8 +577,9 @@ fun main() {
 
     println("\n Full Raw x86 machine code: " + machineCodeFull.toUByteArray().joinToString(" ") { "%02X".format(it.toInt()) })
 
-    val decoded = Instruction.decode(machineCodeFull.toUByteArray()) // Changed here
+    val decoded = Instruction.decode(machineCodeFull.toUByteArray()) 
     println(" Decoded instructions:")
     decoded.forEach(::println)
 
 }
+

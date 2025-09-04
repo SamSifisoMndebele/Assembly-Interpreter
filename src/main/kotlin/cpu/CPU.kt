@@ -1,7 +1,7 @@
 package cpu
 
 import model.EFlags
-import model.Instruction
+import asm.Instruction
 import model.Operation
 import model.Operand
 import model.Operand.*
@@ -214,10 +214,31 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                         push(get32(ESI))
                         push(get32(EDI))
                     }
-                     Operation.OperationZero.RET -> {
+                    Operation.OperationZero.RET -> {
                         EIP = pop() // Pop return address from stack into IP
                         return true // IP was modified
-                     }
+                    }
+
+                    Operation.OperationZero.CLC -> TODO()
+                    Operation.OperationZero.CLD -> TODO()
+                    Operation.OperationZero.CLI -> TODO()
+                    Operation.OperationZero.CMC -> TODO()
+                    Operation.OperationZero.CMPS -> TODO()
+                    Operation.OperationZero.EXIT -> TODO()
+                    Operation.OperationZero.HLT -> TODO()
+                    Operation.OperationZero.INT3 -> TODO()
+                    Operation.OperationZero.IRET -> TODO()
+                    Operation.OperationZero.LODS -> TODO()
+                    Operation.OperationZero.POPAD -> TODO()
+                    Operation.OperationZero.POPF -> TODO()
+                    Operation.OperationZero.PUSHAD -> TODO()
+                    Operation.OperationZero.PUSHF -> TODO()
+                    Operation.OperationZero.SCAS -> TODO()
+                    Operation.OperationZero.STC -> TODO()
+                    Operation.OperationZero.STD -> TODO()
+                    Operation.OperationZero.STI -> TODO()
+                    Operation.OperationZero.STOS -> TODO()
+                    Operation.OperationZero.WAIT -> TODO()
                 }
             }
             is Instruction.InstructionOne -> {
@@ -281,6 +302,60 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                             return true
                         }
                     }
+
+                    Operation.OperationOne.AND -> TODO()
+                    Operation.OperationOne.DEC8 -> TODO()
+                    Operation.OperationOne.DIV -> TODO()
+                    Operation.OperationOne.DIV8 -> TODO()
+                    Operation.OperationOne.IDIV32 -> TODO()
+                    Operation.OperationOne.IDIV8 -> TODO()
+                    Operation.OperationOne.IMUL -> TODO()
+                    Operation.OperationOne.IMUL8 -> TODO()
+                    Operation.OperationOne.INC8 -> TODO()
+                    Operation.OperationOne.JAE -> TODO()
+                    Operation.OperationOne.JB -> TODO()
+                    Operation.OperationOne.JCXZ -> TODO()
+                    Operation.OperationOne.JE -> TODO()
+                    Operation.OperationOne.JECXZ -> TODO()
+                    Operation.OperationOne.JGE -> TODO()
+                    Operation.OperationOne.JL -> TODO()
+                    Operation.OperationOne.JLE -> TODO()
+                    Operation.OperationOne.JNE -> TODO()
+                    Operation.OperationOne.JNO -> TODO()
+                    Operation.OperationOne.JNP -> TODO()
+                    Operation.OperationOne.JNS -> TODO()
+                    Operation.OperationOne.JO -> TODO()
+                    Operation.OperationOne.JP -> TODO()
+                    Operation.OperationOne.JS -> TODO()
+                    Operation.OperationOne.LEA -> TODO()
+                    Operation.OperationOne.LOOPE -> TODO()
+                    Operation.OperationOne.LOOPNE -> TODO()
+                    Operation.OperationOne.LOOPNZ -> TODO()
+                    Operation.OperationOne.LOOPZ -> TODO()
+                    Operation.OperationOne.MOVS -> TODO()
+                    Operation.OperationOne.MOVZ -> TODO()
+                    Operation.OperationOne.MUL -> TODO()
+                    Operation.OperationOne.MUL8 -> TODO()
+                    Operation.OperationOne.NEG -> TODO()
+                    Operation.OperationOne.NEG8 -> TODO()
+                    Operation.OperationOne.NOT -> TODO()
+                    Operation.OperationOne.NOT8 -> TODO()
+                    Operation.OperationOne.OR -> TODO()
+                    Operation.OperationOne.RCL -> TODO()
+                    Operation.OperationOne.RCR -> TODO()
+                    Operation.OperationOne.RET -> TODO()
+                    Operation.OperationOne.ROL -> TODO()
+                    Operation.OperationOne.ROR -> TODO()
+                    Operation.OperationOne.SAL -> TODO()
+                    Operation.OperationOne.SAR -> TODO()
+                    Operation.OperationOne.SHL -> TODO()
+                    Operation.OperationOne.SHR -> TODO()
+                    Operation.OperationOne.TEST -> TODO()
+                    Operation.OperationOne.XOR -> TODO()
+                    Operation.OperationTwo.MOVSX -> TODO()
+                    Operation.OperationTwo.MOVSXR -> TODO()
+                    Operation.OperationTwo.MOVZX -> TODO()
+                    Operation.OperationTwo.MOVZXR -> TODO()
                 }
             }
             is Instruction.InstructionTwo -> {
@@ -316,6 +391,21 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                         val res = a - b
                         subFlags(a, b, res)
                     }
+
+                    Operation.OperationTwo.ADC -> TODO()
+                    Operation.OperationTwo.ADCR -> TODO()
+                    Operation.OperationTwo.ADDR -> TODO()
+                    Operation.OperationTwo.AND -> TODO()
+                    Operation.OperationTwo.ANDR -> TODO()
+                    Operation.OperationTwo.CMPR -> TODO()
+                    Operation.OperationTwo.MOVR -> TODO()
+                    Operation.OperationTwo.OR -> TODO()
+                    Operation.OperationTwo.ORR -> TODO()
+                    Operation.OperationTwo.SBB -> TODO()
+                    Operation.OperationTwo.SBBR -> TODO()
+                    Operation.OperationTwo.SUBR -> TODO()
+                    Operation.OperationTwo.XOR -> TODO()
+                    Operation.OperationTwo.XORR -> TODO()
                 }
             }
         }

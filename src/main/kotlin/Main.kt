@@ -11,7 +11,7 @@ fun main(args: Array<String>) {
     val src = try {
         File(sourceFile).readText()
     } catch (e: FileNotFoundException) {
-        println("Error: Source file not found at '$sourceFile'")
+        println("Error: ${e.message}, Source file not found at '$sourceFile'")
         println("Please provide a valid path as a command-line argument or make sure the default file exists.")
         exitProcess(1)
     }
@@ -26,8 +26,6 @@ fun main(args: Array<String>) {
         cpu.printRegisters()
         mem.printMemory()
     } catch (e: Exception) {
-        // Catching a generic Exception is broad, but without knowing the specific
-        // exceptions thrown by the parser or interpreter, it's a safe starting point.
         println("An error occurred during program execution: ${e.message}")
         e.printStackTrace()
         exitProcess(1)

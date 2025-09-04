@@ -185,8 +185,7 @@ class Parser(src: String, private val mem: Memory) {
                     return Operand.Memory(null, offset) // MemOp expects UInt?
                 }
                 return try {
-                    val immediateValue = parseImmediate(tokenText) // returns UInt
-                    Operand.Immediate(immediateValue) // ImmOp expects UInt
+                    Operand.Immediate(parseImmediate(tokenText))
                 } catch (_: NumberFormatException) {
                     Operand.Label(tokenText)
                 }

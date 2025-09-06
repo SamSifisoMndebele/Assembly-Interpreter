@@ -48,35 +48,26 @@ class Parser(src: String, private val mem: Memory) {
                 "NOP" -> Operation.OperationZero.NOP
                 "CMP" -> Operation.OperationTwo.CMP
                 "JG", "JNLE" -> Operation.OperationOne.JG
-//                "AND" -> Operation.OperationTwo.AND
-//                "OR" -> Operation.OperationTwo.OR
-//                "XOR" -> Operation.OperationTwo.XOR
+                "AND" -> Operation.OperationTwo.AND
+                "OR" -> Operation.OperationTwo.OR
+                "XOR" -> Operation.OperationTwo.XOR
 //                "TEST" -> Operation.OperationTwo.TEST
 //                "LEA" -> Operation.OperationTwo.LEA
-//                "NEG" -> Operation.OperationOne.NEG
-//                "NOT" -> Operation.OperationOne.NOT
-//                "MUL" -> Operation.OperationOne.MUL
-//                "IMUL" -> Operation.OperationOne.IMUL
-//                "DIV" -> Operation.OperationOne.DIV
+                "NEG" -> Operation.OperationOne.NEG
+                "NOT" -> Operation.OperationOne.NOT
+                "MUL" -> Operation.OperationOne.MUL
+                "DIV" -> Operation.OperationOne.DIV
 //                "IDIV" -> Operation.OperationOne.IDIV
-//                "JE", "JZ" -> Operation.OperationOne.JE
-//                "JNE", "JNZ" -> Operation.OperationOne.JNE
-//                "JL", "JNGE" -> Operation.OperationOne.JL
-//                "JGE", "JNL" -> Operation.OperationOne.JGE
-//                "JLE", "JNG" -> Operation.OperationOne.JLE
+                "JE", "JZ" -> Operation.OperationOne.JE
+                "JNE", "JNZ" -> Operation.OperationOne.JNE
+                "JL", "JNGE" -> Operation.OperationOne.JL
+                "JGE", "JNL" -> Operation.OperationOne.JGE
+                "JLE", "JNG" -> Operation.OperationOne.JLE
 //                "JA", "JNBE" -> Operation.OperationOne.JA
-//                "JAE", "JNB", "JNC" -> Operation.OperationOne.JAE
-//                "JB", "JNAE", "JC" -> Operation.OperationOne.JB
+                "JAE", "JNB", "JNC" -> Operation.OperationOne.JAE
+                "JB", "JNAE", "JC" -> Operation.OperationOne.JB
 //                "JBE", "JNA" -> Operation.OperationOne.JBE
 //                "INT" -> Operation.OperationOne.INT
-//                 "HLT" -> Operation.OperationZero.HLT
-
-                // String operations
-//                 "MOVSB", "MOVSW", "MOVSD" -> Operation.OperationZero.MOVS // Assuming a generic MOVS
-//                 "CMPSB", "CMPSW", "CMPSD" -> Operation.OperationZero.CMPS
-//                 "SCASB", "SCASW", "SCASD" -> Operation.OperationZero.SCAS
-//                 "LODSB", "LODSW", "LODSD" -> Operation.OperationZero.LODS
-//                 "STOSB", "STOSW", "STOSD" -> Operation.OperationZero.STOS
 
                 // Shift and Rotate operations - Assuming they are two-operand for now
 //                 "SHL", "SAL" -> Operation.OperationTwo.SHL
@@ -90,6 +81,15 @@ class Parser(src: String, private val mem: Memory) {
             }
     }
 
+    /**
+     * Consumes the current token if it matches the expected kind.
+     *
+     * Advances the lexer to the next token.
+     *
+     * @param kind The expected [Token.Kind].
+     * @return The consumed [Token].
+     * @throws IllegalStateException if the current token does not match the expected kind.
+     */
     private fun eat(kind: Token.Kind): Token {
         if (look.kind != kind) error("Parse error at line ${look.line}: expected $kind, got ${look.kind} ('${look.text}')")
         val t = look
@@ -97,10 +97,47 @@ class Parser(src: String, private val mem: Memory) {
         return t
     }
 
+    /**
+     * Attempts to consume the current token if it matches the expected [kind].
+     * If the current token's kind matches, it calls [eat] to consume it and advance
+     * to the next token, returning the consumed token.
+     * If the kind does not match, it returns `null` and the parser state remains unchanged.
+     *
+     * @param kind The [Token.Kind] to attempt to consume.
+     * @return The consumed [Token] if the kind matched, or `null` otherwise.
+     */
     private fun tryEat(kind: Token.Kind): Token? = if (look.kind == kind) eat(kind) else null
 
     private fun isNewlineOrEOF() = look.kind == Token.Kind.NEWLINE || look.kind == Token.Kind.EOF
 
+    private fun parseEscapedChar(char: Char): Char {
+        return when (char) {
+            'n' -> '\n'
+            'r' -> '\r'
+            't' -> '\t'
+            '\\' -> '\\'
+            '\'' -> '\''
+            '"' -> '"'
+            '0' -> '\u0000' // Null character
+            // Add more escaped characters as needed
+            else -> error("Unsupported escape sequence: \\$char")
+        }
+    }
+
+    /**
+     * Parses an immediate value string into an unsigned integer.
+     * Supports various number formats:
+     * - Hexadecimal (ends with 'h', e.g., "0FFh")
+     * - Binary (ends with 'b', e.g., "1010b")
+     * - Octal (ends with 'q', e.g., "77q")
+     * - Decimal (ends with 'd' or no suffix, e.g., "123d", "255")
+     * Underscores are ignored for readability (e.g., "1_000_000" is treated as "1000000").
+     * Character literals (e.g., 'A') are also handled as their ASCII/Unicode values if tokenized as ID or NUMBER.
+     *
+     * @param text The string representation of the immediate value.
+     * @return The parsed [UInt] value.
+     * @throws NumberFormatException if the string cannot be parsed into a valid number in any of the supported formats.
+     */
     private fun parseImmediate(text: String): UInt {
         println("Parsing immediate: $text")
         val t = text.lowercase().replace("_", "")
@@ -117,20 +154,24 @@ class Parser(src: String, private val mem: Memory) {
         }
     }
     
-    private fun parseEscapedChar(char: Char): Char {
-        return when (char) {
-            'n' -> '\n'
-            'r' -> '\r'
-            't' -> '\t'
-            '\\' -> '\\'
-            '\'' -> '\''
-            '"' -> '"'
-            '0' -> '\u0000' // Null character
-            // Add more escaped characters as needed
-            else -> error("Unsupported escape sequence: \\$char")
-        }
-    }
-    
+    /**
+     * Parses a string literal, handling escape sequences.
+     *
+     * Converts a string (potentially with escape sequences like `\n`, `\t`, `\\`)
+     * into an array of UInts, where each UInt represents the character code
+     * of the corresponding character in the parsed string.
+     *
+     * For example:
+     * - `"Hello"` becomes `[72u, 101u, 108u, 108u, 111u]`
+     * - `"A\nB"` becomes `[65u, 10u, 66u]` (where 10u is the code for newline)
+     * - `"\\"` becomes `[92u]` (where 92u is the code for backslash)
+     *
+     * @param text The raw string literal to parse (e.g., the content between quotes,
+     *             excluding the quotes themselves).
+     * @return An array of UInts representing the character codes of the parsed string.
+     * @throws error if an unsupported escape sequence is encountered.
+     * @see parseEscapedChar
+     */
     private fun parseString(text: String): Array<UInt> {
         val result = mutableListOf<UInt>()
         var i = 0
@@ -147,6 +188,14 @@ class Parser(src: String, private val mem: Memory) {
         return result.toTypedArray()
     }
 
+    /**
+     * Parses a string identifier into a [Reg] enumeration value.
+     * This function is case-insensitive.
+     *
+     * @param id The string representation of the register (e.g., "AX", "al", "EBP").
+     * @return The corresponding [Reg] enum value if the identifier is a valid register name,
+     *         otherwise `null`.
+     */
     private fun parseReg(id: String): Reg? = when(id.uppercase()) {
         "AL" -> Reg.AL
         "AH" -> Reg.AH
@@ -175,6 +224,22 @@ class Parser(src: String, private val mem: Memory) {
         else -> null
     }
 
+    /**
+     * Parses an operand from the current token stream.
+     *
+     * An operand can be:
+     * - **Register:** (e.g., `AX`, `BL`)
+     * - **Immediate Value:** A numeric literal (e.g., `123`, `0FFh`).
+     * - **Memory Address:**
+     *     - Direct: A symbol defined in the `.data` section (e.g., `myVar`).
+     *     - Register Indirect: `[BX]`
+     *     - Register Indirect with Displacement: `[BX+5]` or `[mySymbol+5]` or `[5]` (which is `[0+5]`)
+     * - **Label:** An identifier that is not a register, known data symbol, or valid immediate,
+     *   assumed to be a code label for jumps/calls.
+     *
+     * @return The parsed [Operand].
+     * @throws IllegalStateException if an unexpected token is encountered or if syntax is incorrect.
+     */
     private fun parseOperand(): Operand {
         return when (look.kind) {
             Token.Kind.ID -> {
@@ -241,8 +306,28 @@ class Parser(src: String, private val mem: Memory) {
         }
     }
 
-    // Updated to return Operation
-    private fun parseOp(id: String): Operation {
+    /**
+     * Parses an opcode string and returns the corresponding [Operation] object.
+     *
+     * This function converts the input `id` (opcode string) to uppercase and attempts
+     * to directly look it up in a predefined mapping of opcode strings to [Operation] objects
+     * (via the `asOperation` extension property).
+     *
+     * Previously, this function might have handled suffixes like 'B', 'W', 'D' to determine
+     * operation size. However, this logic has been removed. Operations with different
+     * sizes (e.g., MOVB, MOVW, MOVD) are now expected to be distinct entries in the
+     * opcode-to-operation map, each mapping to a specific [Operation] object
+     * (e.g., `Operation.OperationTwo.MOVB` if such an operation is defined).
+     *
+     * If the opcode string (after being uppercased) is not found in the mapping,
+     * this function throws an error indicating an unknown opcode, including the
+     * line number from the `look` token and the original and parsed opcode strings.
+     *
+     * @param id The opcode string to parse (e.g., "MOV", "add", "JMP").
+     * @return The [Operation] object corresponding to the given opcode string.
+     * @throws IllegalStateException if the opcode string is unknown.
+     */// Updated to return Operation
+    private fun parseOperation(id: String): Operation {
         val upperId = id.uppercase()
         // Direct lookup first
         upperId.asOperation?.let { return it }
@@ -302,7 +387,7 @@ class Parser(src: String, private val mem: Memory) {
                     }
 
                     if (currentSection == Section.CODE) {
-                        val op = parseOp(id) 
+                        val op = parseOperation(id)
                         var dst: Operand? = null
                         var src: Operand? = null
                         

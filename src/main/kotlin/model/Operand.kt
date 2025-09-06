@@ -5,13 +5,13 @@ package model
  * Operands can be registers, immediate values (8-bit, 16-bit, or 32-bit),
  * symbolic labels, or memory addresses.
  */
-sealed class Operand {
+sealed interface Operand {
     /**
      * Represents a register operand.
      *
      * @property reg The register being used as an operand.
      */
-    data class Register(val reg: Reg): Operand() {
+    data class Register(val reg: Reg): Operand {
         override fun toString(): String = reg.name
     }
 
@@ -20,7 +20,7 @@ sealed class Operand {
      *
      * @property value The 32-bit integer value.
      */
-    data class Immediate(val value: UInt): Operand() {
+    data class Immediate(val value: UInt): Operand {
         override fun toString(): String = value.toString(radix = 16)+"h"
     }
 
@@ -30,7 +30,7 @@ sealed class Operand {
      *
      * @property name The name of the label.
      */
-    data class Label(val name: String): Operand() {
+    data class Label(val name: String): Operand {
         override fun toString(): String = name
     }
 
@@ -43,7 +43,7 @@ sealed class Operand {
     data class Memory(
         val base: Reg?,
         val disp: UInt? = null // Displacement
-    ) : Operand() {
+    ) : Operand {
         override fun toString(): String {
             val baseStr = base?.name ?: ""
             val dispStr = disp?.let { d ->

@@ -15,16 +15,14 @@ class InstructionZero(
     override val operation: Operation.OperationZero,
     override val line: Int
 ) : Instruction {
-    override fun encode(): UByteArray {
-        when (operation) {
-            Operation.OperationZero.EXIT -> TODO()
-            Operation.OperationZero.NOP -> TODO()
-            Operation.OperationZero.POPA -> TODO()
-            Operation.OperationZero.POPAD -> TODO()
-            Operation.OperationZero.PUSHA -> TODO()
-            Operation.OperationZero.PUSHAD -> TODO()
-            Operation.OperationZero.RET -> TODO()
-        }
+    override fun encode(): UByteArray = when (operation) {
+        Operation.OperationZero.EXIT -> TODO()
+        Operation.OperationZero.NOP -> TODO()
+        Operation.OperationZero.POPA -> TODO()
+        Operation.OperationZero.POPAD -> TODO()
+        Operation.OperationZero.PUSHA -> TODO()
+        Operation.OperationZero.PUSHAD -> TODO()
+        Operation.OperationZero.RET -> TODO()
     }
 
     override fun toString(): String = "$line: $operation"

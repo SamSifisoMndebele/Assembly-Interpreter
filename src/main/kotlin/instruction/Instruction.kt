@@ -260,7 +260,7 @@ sealed interface Instruction {
             return result
         }
 
-        private fun UInt.toUBytes(): UByteArray =
+        fun UInt.toUBytes(): UByteArray =
             ubyteArrayOf(
                 (this and 0xFFu).toUByte(),
                 ((this shr 8) and 0xFFu).toUByte(),

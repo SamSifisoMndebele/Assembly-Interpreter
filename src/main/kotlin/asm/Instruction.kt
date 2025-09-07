@@ -179,9 +179,6 @@ sealed class Instruction(
                         else -> error("Unsupported MOV destination operand: $dst")
                     }
                 }
-
-                OperationTwo.ADC -> TODO()
-                OperationTwo.ADCR -> TODO()
                 OperationTwo.ADD -> {
                     val dst = this.dst
                     val src = this.src
@@ -203,9 +200,7 @@ sealed class Instruction(
                         else -> error("Unsupported ADD destination operand: $dst")
                     }
                 }
-                OperationTwo.ADDR -> TODO()
                 OperationTwo.AND -> TODO()
-                OperationTwo.ANDR -> TODO()
                 OperationTwo.CMP -> {
                     val dst = this.dst
                     val src = this.src
@@ -228,27 +223,7 @@ sealed class Instruction(
                         else -> error("Unsupported CMP destination operand: $dst")
                     }
                 }
-                OperationTwo.CMPR -> { // Same as CMP r32, r32
-                    val dst = this.dst
-                    val src = this.src
-                    when (dst) {
-                        is Register -> when (src) {
-                            is Register -> {
-                                // CMPR r32, r32 (equivalent to CMP r32, r32) - Opcode 0x39 /r
-                                // ModR/M: 11 src_reg_code dst_reg_code
-                                val modRM = (0b11_000_000 or (src.reg.code.toInt() shl 3) or dst.reg.code.toInt()).toUByte()
-                                ubyteArrayOf(0x39.toUByte(), modRM)
-                            }
-                            else -> error("Unsupported CMPR source operand for register destination: $src")
-                        }
-                        else -> error("Unsupported CMPR destination operand: $dst")
-                    }
-                }
-                OperationTwo.MOVR -> TODO()
                 OperationTwo.OR -> TODO()
-                OperationTwo.ORR -> TODO()
-                OperationTwo.SBB -> TODO()
-                OperationTwo.SBBR -> TODO()
                 OperationTwo.SUB -> {
                     val dst = this.dst
                     val src = this.src
@@ -271,7 +246,6 @@ sealed class Instruction(
                         else -> error("Unsupported SUB destination operand: $dst")
                     }
                 }
-                OperationTwo.SUBR -> TODO()
                 OperationTwo.XCHG -> {
                     val dst = this.dst
                     val src = this.src
@@ -302,7 +276,6 @@ sealed class Instruction(
                     }
                 }
                 OperationTwo.XOR -> TODO()
-                OperationTwo.XORR -> TODO()
             }
         }
 

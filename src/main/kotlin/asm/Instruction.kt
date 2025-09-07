@@ -276,6 +276,8 @@ sealed class Instruction(
                     }
                 }
                 OperationTwo.XOR -> TODO()
+                OperationTwo.MOVSX -> TODO()
+                OperationTwo.MOVZX -> TODO()
             }
         }
 

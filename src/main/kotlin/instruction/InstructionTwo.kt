@@ -5,12 +5,11 @@ import model.Operand
 import model.Operand.Immediate
 import model.Operand.Memory
 import model.Operand.Register
-import model.Operation
 import model.Operation.OperationTwo
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionTwo(
-    override val operation: Operation.OperationTwo,
+    override val operation: OperationTwo,
     val destination: Operand,
     val source: Operand,
     override val line: Int
@@ -54,13 +53,15 @@ class InstructionTwo(
             }
             else -> error("Unsupported MOV destination operand: $destination")
         }
-        Operation.OperationTwo.ADD -> TODO()
-        Operation.OperationTwo.SUB -> TODO()
-        Operation.OperationTwo.CMP -> TODO()
-        Operation.OperationTwo.XCHG -> TODO()
-        Operation.OperationTwo.AND -> TODO()
-        Operation.OperationTwo.OR -> TODO()
-        Operation.OperationTwo.XOR -> TODO()
+        OperationTwo.ADD -> TODO()
+        OperationTwo.SUB -> TODO()
+        OperationTwo.CMP -> TODO()
+        OperationTwo.XCHG -> TODO()
+        OperationTwo.AND -> TODO()
+        OperationTwo.OR -> TODO()
+        OperationTwo.XOR -> TODO()
+        OperationTwo.MOVSX -> TODO()
+        OperationTwo.MOVZX -> TODO()
     }
 
     override fun toString(): String = "$line: $operation $destination, $source"

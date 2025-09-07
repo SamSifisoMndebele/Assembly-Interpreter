@@ -147,8 +147,8 @@ sealed interface Operation {
         // Data Movement
         data object MOV   : OperationTwo { override val opcode: UByte = 0x89u }
         data object XCHG  : OperationTwo { override val opcode: UByte = 0x87u }
-        data object MOVZX : OperationOne { override val opcode: UByte = 0xB6u }
-        data object MOVSX : OperationOne { override val opcode: UByte = 0xBEu }
+        data object MOVZX : OperationTwo { override val opcode: UByte = 0xB6u }
+        data object MOVSX : OperationTwo { override val opcode: UByte = 0xBEu }
 //        data object MOVR  : OperationTwo { override val opcode: UByte = 0x8Bu } // Move r/m32 -> r32 (reverse)
 //        data object MOVZXR: OperationOne { override val opcode: UByte = 0xB7u } // Move r/m16 -> r32 with zero-extend
 //        data object MOVSXR: OperationOne { override val opcode: UByte = 0xBFu } // Move r/m16 -> r32 with sign-extend

@@ -1,6 +1,10 @@
 package asm
 
 import cpu.Memory
+import instruction.Instruction
+import instruction.InstructionOne
+import instruction.InstructionTwo
+import instruction.InstructionZero
 import model.*
 
 /**
@@ -409,15 +413,15 @@ class Parser(src: String, private val mem: Memory) {
                         when (op) {
                             is Operation.OperationZero -> {
                                 if (dst != null) error("Line ${idTok.line}: Opcode '$id' expects 0 operands, got ${listOfNotNull(dst,src).size}")
-                                instructions.add(Instruction.InstructionZero(op, idTok.line))
+                                instructions.add(InstructionZero(op, idTok.line))
                             }
                             is Operation.OperationOne -> {
                                 if (dst == null || src != null) error("Line ${idTok.line}: Opcode '$id' expects 1 operand, got ${listOfNotNull(dst,src).size}")
-                                instructions.add(Instruction.InstructionOne(op, dst, idTok.line))
+                                instructions.add(InstructionOne(op, dst, idTok.line))
                             }
                             is Operation.OperationTwo -> {
                                 if (dst == null || src == null) error("Line ${idTok.line}: Opcode '$id' expects 2 operands, got ${listOfNotNull(dst, src).size}")
-                                instructions.add(Instruction.InstructionTwo(op, dst, src, idTok.line))
+                                instructions.add(InstructionTwo(op, dst, src, idTok.line))
                             }
                         }
 

@@ -1,10 +1,14 @@
 package cpu
 
 import model.EFlags
-import asm.Instruction
+import instruction.Instruction
+import instruction.InstructionOne
+import instruction.InstructionTwo
+import instruction.InstructionZero
 import model.Operation
 import model.Operand
 import model.Operand.*
+import model.Operand.Immediate
 import model.Reg
 import model.Reg.*
 
@@ -190,7 +194,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
      */
     fun execute(instruction: Instruction): Boolean {
         when(instruction) {
-            is Instruction.InstructionZero -> {
+            is InstructionZero -> {
                 when(instruction.operation) {
                     Operation.OperationZero.NOP -> { /* Do nothing */ }
                     Operation.OperationZero.POPA -> {
@@ -224,7 +228,7 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                     Operation.OperationZero.PUSHAD -> TODO()
                 }
             }
-            is Instruction.InstructionOne -> {
+            is InstructionOne -> {
                 val operand = instruction.operand
                 when(instruction.operation) {
                     Operation.OperationOne.DEC -> {
@@ -338,9 +342,9 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                     Operation.OperationOne.JPO -> TODO()
                 }
             }
-            is Instruction.InstructionTwo -> {
-                val dst = instruction.dst
-                val src = instruction.src
+            is InstructionTwo -> {
+                val dst = instruction.destination
+                val src = instruction.source
                 when(instruction.operation) {
                     Operation.OperationTwo.ADD -> {
                         val a = read(dst)
@@ -375,6 +379,8 @@ class CPU(private val mem: Memory, private val labels: Map<String, UInt> = empty
                     Operation.OperationTwo.AND -> TODO()
                     Operation.OperationTwo.OR -> TODO()
                     Operation.OperationTwo.XOR -> TODO()
+                    Operation.OperationTwo.MOVSX -> TODO()
+                    Operation.OperationTwo.MOVZX -> TODO()
                 }
             }
         }
@@ -472,12 +478,11 @@ fun main() {
     println("------------------------------------")
 
     val program = listOf(
-        Instruction.InstructionTwo(Operation.OperationTwo.MOV, Register(EAX), Immediate(0xAu)), // MOV EAX, 0xA
-        Instruction.InstructionOne(Operation.OperationOne.PUSH, Register(EAX)),              // PUSH EAX
-        Instruction.InstructionTwo(Operation.OperationTwo.MOV, Register(EBX), Immediate(0xBu)), // MOV EBX, 0xB
-        Instruction.InstructionOne(Operation.OperationOne.PUSH, Register(EBX)),              // PUSH EBX
-        Instruction.InstructionOne(Operation.OperationOne.POP, Register(ECX)),               // POP ECX (should be 0xB)
-        Instruction.InstructionOne(Operation.OperationOne.POP, Register(EDX))                // POP EDX (should be 0xA)
+        InstructionTwo(Operation.OperationTwo.MOV, Register(EAX), Immediate(0xAu), 1), // MOV EAX, 0xA
+        InstructionTwo(Operation.OperationTwo.MOV, Register(EBX), Immediate(0xBu), 2), // MOV EBX, 0xB
+        InstructionOne(Operation.OperationOne.PUSH, Register(EBX), 3),              // PUSH EBX
+        InstructionOne(Operation.OperationOne.POP, Register(ECX), 4),               // POP ECX (should be 0xB)
+        InstructionOne(Operation.OperationOne.POP, Register(EDX), 5)                // POP EDX (should be 0xA)
     )
     
     println("--- Running Program ---")
@@ -494,9 +499,9 @@ fun main() {
     if (dataAddress + 3u < mem.bytes.toUInt()) {
         println("--- Testing Memory Write/Read ---")
         // MOV [0x100], EAX (where EAX is 0xA after first POP)
-        cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, Memory(null, dataAddress), Register(EDX)))
+        cpu.execute(InstructionTwo(Operation.OperationTwo.MOV, Memory(null, dataAddress), Register(EDX), 1))
         // MOV EDI, [0x100]
-        cpu.execute(Instruction.InstructionTwo(Operation.OperationTwo.MOV, Register(EDI), Memory(null, dataAddress)))
+        cpu.execute(InstructionTwo(Operation.OperationTwo.MOV, Register(EDI), Memory(null, dataAddress), 2))
         cpu.printRegisters()
         println("Value at mem[0x100]: 0x${mem.readDWord(dataAddress.toLong()).toString(16)}")
         println("---------------------------------")

@@ -2,7 +2,7 @@
 
 package asm
 
-import asm.Instruction.*
+import asm.Instruction2.*
 import model.Operand
 import model.Operand.*
 import model.Operation.*
@@ -26,7 +26,7 @@ import kotlin.collections.addAll
  *                instruction or label was parsed from. Defaults to -1 if not
  *                applicable or unknown.
  */
-sealed class Instruction(
+sealed class Instruction2(
     open val line: Int = -1
 ) {
     /**
@@ -54,7 +54,7 @@ sealed class Instruction(
     data class InstructionZero(
         val operation: OperationZero,
         override val line: Int = -1
-    ) : Instruction(line) {
+    ) : Instruction2(line) {
         /**
          * Encodes the zero-operand instruction into machine code.
          *
@@ -83,7 +83,7 @@ sealed class Instruction(
         val operation: OperationOne,
         val operand: Operand,
         override val line: Int = -1
-    ) : Instruction(line) {
+    ) : Instruction2(line) {
         /**
          * Encodes the one-operand instruction into machine code.
          *
@@ -124,7 +124,7 @@ sealed class Instruction(
         val dst: Operand,
         val src: Operand,
         override val line: Int = -1
-    ) : Instruction(line) {
+    ) : Instruction2(line) {
         /**
          * Encodes the two-operand instruction into machine code.
          *
@@ -298,8 +298,8 @@ sealed class Instruction(
          * @return A list of decoded {@link Instruction} objects.
          * @throws error if an unknown opcode is encountered or an unsupported addressing mode is used.
          */
-        fun decode(bytes: UByteArray): List<Instruction> {
-            val result = mutableListOf<Instruction>()
+        fun decode(bytes: UByteArray): List<Instruction2> {
+            val result = mutableListOf<Instruction2>()
             var i = 0
             val r32OpcodeMap = Reg.entries
                 .filter { it.name.startsWith("E") }
@@ -552,7 +552,7 @@ fun main() {
 
     println("\n Full Raw x86 machine code: " + machineCodeFull.toUByteArray().joinToString(" ") { "%02X".format(it.toInt()) })
 
-    val decoded = Instruction.decode(machineCodeFull.toUByteArray()) 
+    val decoded = Instruction2.decode(machineCodeFull.toUByteArray())
     println(" Decoded instructions:")
     decoded.forEach(::println)
 

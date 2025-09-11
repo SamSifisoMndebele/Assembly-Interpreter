@@ -274,3 +274,36 @@ sealed interface Instruction {
                 (this[3].toUInt() shl 24)
     }
 }
+
+
+@OptIn(ExperimentalUnsignedTypes::class)
+fun main() {
+    val instructions = listOf(
+        InstructionTwo(OperationTwo.MOV, Register(Reg.EAX), Immediate(0x50u), 1),
+        InstructionTwo(OperationTwo.MOV, Register(Reg.EBX), Register(Reg.EAX), 2),
+        InstructionTwo(OperationTwo.MOV, Register(Reg.ECX), Memory(null, 0u), 3),
+        InstructionTwo(OperationTwo.MOV, Memory(null, 0u), Register(Reg.EAX), 4),
+        InstructionTwo(OperationTwo.MOV, Memory(null, 8u), Immediate(0x54u), 5),
+    )
+
+    val machineCodeParts = mutableListOf<String>()
+    val machineCodeFull = mutableListOf<UByte>()
+
+    println("\nInstructions:")
+    instructions.forEachIndexed { index, instruction ->
+        val encodedBytes = instruction.encode()
+        val hexString = encodedBytes.joinToString(" ") { "%02X".format(it.toInt()) }
+        println("$instruction -> $hexString")
+        machineCodeParts.add(hexString)
+        machineCodeFull.addAll(encodedBytes)
+    }
+
+    println("\n Full Raw x86 machine code: " + machineCodeFull.toUByteArray().joinToString(" ") { "%02X".format(it.toInt()) })
+
+
+
+//    val decoded = Instruction.decode(machineCodeFull.toUByteArray())
+//    println(" Decoded instructions:")
+//    decoded.forEach(::println)
+
+}

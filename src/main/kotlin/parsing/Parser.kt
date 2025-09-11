@@ -2,15 +2,14 @@ package parsing
 
 import cpu.Memory
 import lexical.Lexer
-import model.Section
+import model.Segment
 import java.io.File
 import java.io.FileNotFoundException
 import kotlin.system.exitProcess
 
 class Parser(source: String, private val memory: Memory): Lexer(source) {
-    private var currentSection = Section.CODE
-    private val symbolTable = mutableMapOf<String, UInt>() // symbol -> offset within data segment
-    private var dataOffset = 0L // Current offset within the data segment
+    private var segment = Segment.CODE
+
 
     init {
         println("Tokens:")
@@ -23,13 +22,13 @@ fun main() {
     val src = try {
         File("src/main/kotlin/main.asm").readText()
     } catch (e: FileNotFoundException) {
-        println("Error: ${e.message}, Source file not found.")
+        println("Error: ${e.message}, Source file not found: src/main/kotlin/main.asm")
         println("Please provide a valid path as a command-line argument or make sure the default file exists.")
         exitProcess(1)
     }
 
-    val memory = Memory()
+    val memory = Memory(64L)
     val parser = Parser(src, memory)
 
-
+    memory.printMemory()
 }

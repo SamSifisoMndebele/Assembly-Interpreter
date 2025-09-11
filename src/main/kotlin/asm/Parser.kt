@@ -298,7 +298,7 @@ class Parser(src: String, private val mem: Memory) {
                             }
                         }
                     }
-                    Token.Kind.NUMBER -> { 
+                    Token.Kind.NUMBER -> {
                         disp = parseImmediate(eat(Token.Kind.NUMBER).text) // returns UInt
                     }
                     else -> error("Line ${look.line}: bad memory operand, expected ID or NUMBER inside brackets")
@@ -348,10 +348,6 @@ class Parser(src: String, private val mem: Memory) {
         val labels: MutableMap<String, UInt> // label -> instruction index (UInt)
     )
 
-    /**
-     * Parses the entire assembly program.
-     * ... (rest of kdoc)
-     */
     fun parseProgram(): ParsedProgram {
         val instructions = mutableListOf<Instruction>()
         val labels = mutableMapOf<String, UInt>() 
@@ -427,7 +423,7 @@ class Parser(src: String, private val mem: Memory) {
 
                     } else if (currentSection == Section.DATA) {
                         val symbolName = id 
-                        val typeTok = eat(Token.Kind.ID) 
+                        val typeTok = eat(Token.Kind.ID)
                         val directiveText = typeTok.text.uppercase()
 
                         symbolTable[symbolName] = dataOffset.toUInt()

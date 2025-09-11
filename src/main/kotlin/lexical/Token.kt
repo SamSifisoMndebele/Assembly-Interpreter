@@ -45,6 +45,8 @@ data class Token(val kind: Kind, val text: String, val line: Int) {
         MINUS,
         /** Segment directive (e.g., .code, .data) */
         SEGMENT,
+        /** Operation (e.g., ADD, SUB, MUL) */
+        OPERATION,
         /** Unknown or unrecognized token */
         UNKNOWN
     }

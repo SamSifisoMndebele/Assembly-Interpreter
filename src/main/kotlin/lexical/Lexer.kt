@@ -1,5 +1,6 @@
 package lexical
 
+import model.Operation.Companion.allOperations
 import java.io.File
 import java.io.FileNotFoundException
 import java.util.regex.Pattern
@@ -8,20 +9,18 @@ import kotlin.system.exitProcess
 class Lexer(source: String) {
     companion object {
         // Regex patterns
-        private val hexPattern = Pattern.compile("^(?:0[xX][0-9a-fA-F]+|[0-9][0-9a-fA-F]*[hH])")
-        private val binPattern = Pattern.compile("^(?:0[bB][01]+|[01]+[bB])")
-        private val octPattern = Pattern.compile("^(?:0[qQoO][0-7]+|[0-7]+[qQoO])")
-        private val decPattern = Pattern.compile("^[-+]?[0-9]+(?:_[0-9]+)*[dD]?")
-        private val identPattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*")
+        private val hexPattern = Pattern.compile("^(?:0x[0-9a-f]+|[0-9][0-9a-f]*h)", Pattern.CASE_INSENSITIVE)
+        private val binPattern = Pattern.compile("^(?:0b[01]+|[01]+b)", Pattern.CASE_INSENSITIVE)
+        private val octPattern = Pattern.compile("^(?:0[qo][0-7]+|[0-7]+[qo])", Pattern.CASE_INSENSITIVE)
+        private val decPattern = Pattern.compile("^[-+]?[0-9]+(?:_[0-9]+)*d?", Pattern.CASE_INSENSITIVE)
+        private val identifierPattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*")
         private val labelPattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*\\s*:")
         private val registerPattern = Pattern.compile("^(r[0-9]+|e?[abcd]x|[sd]i|[sb]p)", Pattern.CASE_INSENSITIVE)
         private val segmentPattern = Pattern.compile("^(?:section\\s+)?\\.(code|data|stack)", Pattern.CASE_INSENSITIVE)
         private val stringPattern = Pattern.compile("^\"([^\"\\\\]|\\\\.)*\"|^'([^'\\\\]|\\\\.)*'")
-        private val dataDirectivePattern = Pattern.compile(
-            "^(byte|word|dword|db|dw|dd|dq|dt)",
-            Pattern.CASE_INSENSITIVE
-        )
+        private val dataDirectivePattern = Pattern.compile("^(byte|word|dword|db|dw|dd|dq|dt)", Pattern.CASE_INSENSITIVE)
 
+        private val operations = allOperations.map { it.toString().lowercase() }
     }
 
     private val tokens = mutableListOf<Token>()
@@ -75,7 +74,11 @@ class Lexer(source: String) {
         match(octPattern, Token.Kind.NUMBER_OCT)?.let { return it }
         match(decPattern, Token.Kind.NUMBER_DEC)?.let { return it }
         match(stringPattern, Token.Kind.STRING)?.let { return it }
-        match(identPattern, Token.Kind.IDENTIFIER)?.let { return it }
+        match(identifierPattern, Token.Kind.IDENTIFIER)?.let {
+            if (operations.contains(it.text.lowercase()))
+                return Token(Token.Kind.OPERATION, it.text, line)
+            return it
+        }
 
         return null
     }

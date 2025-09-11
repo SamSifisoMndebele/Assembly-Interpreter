@@ -13,7 +13,7 @@
       <w>jnbe</w>
       <w>jnge</w>
       <w>jnle</w>
-      <w>lbrack</w>
+      <w>lbracket</w>
       <w>lods</w>
       <w>lodsb</w>
       <w>lodsd</w>
@@ -29,7 +29,7 @@
       <w>popad</w>
       <w>pusha</w>
       <w>pushad</w>
-      <w>rbrack</w>
+      <w>rbracket</w>
       <w>scas</w>
       <w>scasb</w>
       <w>scasd</w>

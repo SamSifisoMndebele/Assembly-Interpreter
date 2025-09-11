@@ -9,10 +9,10 @@ sealed interface Operand {
     /**
      * Represents a register operand.
      *
-     * @property reg The register being used as an operand.
+     * @property register The register being used as an operand.
      */
-    data class Register(val reg: Reg): Operand {
-        override fun toString(): String = reg.name
+    data class Register(val register: model.Register): Operand {
+        override fun toString(): String = register.name
     }
 
     /**
@@ -41,7 +41,7 @@ sealed interface Operand {
      * @property disp An optional displacement value used in address calculation (e.g., `[1234h]`, `[BX + 8]`).
      */
     data class Memory(
-        val base: Reg?,
+        val base: model.Register?,
         val disp: UInt? = null // Displacement
     ) : Operand {
         override fun toString(): String {

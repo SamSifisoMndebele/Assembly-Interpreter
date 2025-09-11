@@ -51,5 +51,5 @@ data class Token(val kind: Kind, val text: String, val line: Int) {
         UNKNOWN
     }
 
-    override fun toString(): String = "$line: $kind $text"
+    override fun toString(): String = String.format("%-3d: %-16s %s", line, kind, text)
 }

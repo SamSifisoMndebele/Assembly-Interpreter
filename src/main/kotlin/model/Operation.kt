@@ -176,4 +176,19 @@ sealed interface Operation {
 
 
     }
+
+    companion object {
+        val allOperations: Set<Operation>
+            get() {
+                val opClasses = listOf(
+                    OperationZero::class,
+                    OperationOne::class,
+                    OperationTwo::class
+                )
+                return opClasses.flatMap { opClass ->
+                    opClass.nestedClasses.map { it.objectInstance as Operation }
+                }.toSet()
+            }
+
+    }
 }

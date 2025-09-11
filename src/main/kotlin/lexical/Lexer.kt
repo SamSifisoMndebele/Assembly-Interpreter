@@ -6,6 +6,29 @@ import java.io.FileNotFoundException
 import java.util.regex.Pattern
 import kotlin.system.exitProcess
 
+/**
+ * The Lexer class is responsible for tokenizing the input source code.
+ * It takes a string of source code as input and produces a stream of tokens.
+ *
+ * The lexer works by iterating through the source code line by line,
+ * and for each line, it tries to match various patterns to identify tokens.
+ * Comments (lines starting with ';') are ignored.
+ *
+ * The supported token types include:
+ * - Numbers (hexadecimal, binary, octal, decimal)
+ * - Identifiers
+ * - Labels
+ * - Registers
+ * - Segments (code, data, stack)
+ * - Strings
+ * - Data directives (byte, word, dword, etc.)
+ * - Operations (instructions)
+ * - Punctuation (comma, brackets, plus, minus)
+ *
+ * If an unrecognized character is encountered, it is treated as an UNKNOWN token.
+ *
+ * @property source The input source code string.
+ */
 class Lexer(source: String) {
     companion object {
         // Regex patterns

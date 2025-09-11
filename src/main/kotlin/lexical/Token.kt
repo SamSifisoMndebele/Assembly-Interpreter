@@ -17,36 +17,52 @@ data class Token(val kind: Kind, val text: String, val line: Int) {
     enum class Kind {
         /** Hexadecimal number (e.g., 0x1A) */
         NUMBER_HEX,
+
         /** Binary number (e.g., 0b1010) */
         NUMBER_BIN,
+
         /** Octal number (e.g., 0o77) */
         NUMBER_OCT,
+
         /** Decimal number (e.g., 123) */
         NUMBER_DEC,
+
         /** String literal */
         STRING,
+
         /** Identifier (e.g., variable names, function names) */
         IDENTIFIER,
+
         /** Label identifier (e.g., myLabel:) */
         LABEL,
+
         /** Register identifier (e.g., eax, PC) */
         REGISTER,
+
         /** A data directory directive (e.g., word, dw, dd) */
         DATA_DIR,
+
         /** Comma separator ',' */
         COMMA,
+
         /** Left bracket '[' */
         LBRACKET,
+
         /** Right bracket ']' */
         RBRACKET,
+
         /** Plus operator '+' */
         PLUS,
+
         /** Minus operator '-' */
         MINUS,
+
         /** Segment directive (e.g., .code, .data) */
         SEGMENT,
+
         /** Operation (e.g., ADD, SUB, MUL) */
         OPERATION,
+
         /** Unknown or unrecognized token */
         UNKNOWN
     }

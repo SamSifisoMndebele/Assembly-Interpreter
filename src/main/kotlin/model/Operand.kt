@@ -9,10 +9,10 @@ sealed interface Operand {
     /**
      * Represents a register operand.
      *
-     * @property register The register being used as an operand.
+     * @property cpuRegister The register being used as an operand.
      */
-    data class Register(val register: model.Register): Operand {
-        override fun toString(): String = register.name
+    data class Register(val cpuRegister: CpuRegister) : Operand {
+        override fun toString(): String = cpuRegister.name
     }
 
     /**
@@ -20,8 +20,8 @@ sealed interface Operand {
      *
      * @property value The 32-bit integer value.
      */
-    data class Immediate(val value: UInt): Operand {
-        override fun toString(): String = value.toString(radix = 16)+"h"
+    data class Immediate(val value: UInt) : Operand {
+        override fun toString(): String = value.toString(radix = 16) + "h"
     }
 
     /**
@@ -30,7 +30,7 @@ sealed interface Operand {
      *
      * @property name The name of the label.
      */
-    data class Label(val name: String): Operand {
+    data class Label(val name: String) : Operand {
         override fun toString(): String = name
     }
 
@@ -41,7 +41,7 @@ sealed interface Operand {
      * @property disp An optional displacement value used in address calculation (e.g., `[1234h]`, `[BX + 8]`).
      */
     data class Memory(
-        val base: model.Register?,
+        val base: CpuRegister?,
         val disp: UInt? = null // Displacement
     ) : Operand {
         override fun toString(): String {

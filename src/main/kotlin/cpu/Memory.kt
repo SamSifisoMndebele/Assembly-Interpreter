@@ -14,6 +14,7 @@ class Memory(bytes: Long = 65_536) {
             "Memory size must be between 32 bytes and 8GB"
         }
     }
+
     /**
      * Secondary constructor to initialize memory with a size in kilobytes.
      *

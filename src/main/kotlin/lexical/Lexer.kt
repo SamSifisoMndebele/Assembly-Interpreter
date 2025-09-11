@@ -1,10 +1,7 @@
 package lexical
 
 import model.Operation.Companion.allOperations
-import java.io.File
-import java.io.FileNotFoundException
 import java.util.regex.Pattern
-import kotlin.system.exitProcess
 
 /**
  * The Lexer class is responsible for tokenizing the input source code.

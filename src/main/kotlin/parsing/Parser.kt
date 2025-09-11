@@ -7,7 +7,7 @@ import java.io.File
 import java.io.FileNotFoundException
 import kotlin.system.exitProcess
 
-class Parser(source: String, private val memory: Memory): Lexer(source) {
+class Parser(source: String, private val memory: Memory) : Lexer(source) {
     private var segment = Segment.CODE
 
 
@@ -28,7 +28,7 @@ fun main() {
     }
 
     val memory = Memory(64L)
-    val parser = Parser(src, memory)
+    Parser(src, memory)
 
     memory.printMemory()
 }

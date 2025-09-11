@@ -122,6 +122,8 @@ class Lexer(source: String) {
      * @return `true` if there are more tokens, `false` otherwise.
      */
     fun hasToken(): Boolean = tokensIterator.hasNext()
+
+    fun getTokens(): List<Token> = tokens
 }
 
 fun main() {

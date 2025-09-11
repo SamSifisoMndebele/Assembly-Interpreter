@@ -68,7 +68,7 @@ class Lexer(private val source: String) {
                     val text = line.substring(start, colIdx)
                     return Token(Token.Kind.ID, text, lineIdx + 1)
                 }
-                ch.isDigit() || ((ch == '-' || ch == '+') && colIdx + 1 < line.length && line[colIdx+1].isDigit()) -> {
+                ch.isDigit() || ((ch == '-') && colIdx + 1 < line.length && line[colIdx+1].isDigit()) -> {
                     // Number: decimal, hex, or binary
                     val start = colIdx
                     // Try to match hex

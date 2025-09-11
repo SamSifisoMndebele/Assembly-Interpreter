@@ -29,7 +29,7 @@ import kotlin.system.exitProcess
  *
  * @property source The input source code string.
  */
-class Lexer(source: String) {
+abstract class Lexer(source: String) {
     companion object {
         // Regex patterns
         private val hexPattern = Pattern.compile("^(?:0x[0-9a-f]+|[0-9][0-9a-f]*h)", Pattern.CASE_INSENSITIVE)
@@ -106,7 +106,7 @@ class Lexer(source: String) {
         return null
     }
 
-    private val tokensIterator = tokens.iterator()
+    private val tokensIterator = tokens.listIterator()
 
     /**
      * Returns the next token from the input source code.
@@ -123,22 +123,28 @@ class Lexer(source: String) {
      */
     fun hasToken(): Boolean = tokensIterator.hasNext()
 
+    /**
+     * Returns the previous token from the input source code.
+     * This function is useful when you need to look back at the previously processed token.
+     *
+     * @return The previous token.
+     * @throws NoSuchElementException if there is no previous token (e.g., at the beginning of the token stream).
+     */
+    fun previousToken(): Token = tokensIterator.previous()
+
+    /**
+     * Checks if there is a previous token.
+     *
+     * This function is useful when iterating backwards or when needing to look behind the current token.
+     *
+     * @return `true` if there is a previous token, `false` otherwise.
+     */
+    fun hasPrevious(): Boolean = tokensIterator.hasPrevious()
+
+    /**
+     * Returns a list of all tokens generated from the input source code.
+     *
+     * @return A list of [Token] objects.
+     */
     fun getTokens(): List<Token> = tokens
-}
-
-fun main() {
-    val src = try {
-        File("src/main/kotlin/main.asm").readText()
-    } catch (e: FileNotFoundException) {
-        println("Error: ${e.message}, Source file not found.")
-        println("Please provide a valid path as a command-line argument or make sure the default file exists.")
-        exitProcess(1)
-    }
-
-    val lexer = Lexer(src)
-
-    println("Tokens:")
-    while (lexer.hasToken()) {
-        println(lexer.nextToken())
-    }
 }

@@ -7,16 +7,14 @@ import java.io.File
 import java.io.FileNotFoundException
 import kotlin.system.exitProcess
 
-class Parser(private val lexer: Lexer, private val memory: Memory) {
+class Parser(source: String, private val memory: Memory): Lexer(source) {
     private var currentSection = Section.CODE
     private val symbolTable = mutableMapOf<String, UInt>() // symbol -> offset within data segment
     private var dataOffset = 0L // Current offset within the data segment
 
     init {
         println("Tokens:")
-        lexer.getTokens().forEach {
-            println(it)
-        }
+        getTokens().forEach { println(it) }
     }
 }
 
@@ -30,9 +28,8 @@ fun main() {
         exitProcess(1)
     }
 
-    val lexer = Lexer(src)
     val memory = Memory()
-    val parser = Parser(lexer, memory)
+    val parser = Parser(src, memory)
 
 
 }

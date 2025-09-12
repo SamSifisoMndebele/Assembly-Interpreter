@@ -15,7 +15,7 @@ class InstructionZero(
     override val operation: Operation.OperationZero,
     override val line: Int
 ) : Instruction {
-    override fun encode(): UByteArray = when (operation) {
+    override fun encode(symbols: Map<String, Long>): UByteArray = when (operation) {
         Operation.OperationZero.EXIT -> TODO()
         Operation.OperationZero.NOP -> TODO()
         Operation.OperationZero.POPA -> TODO()

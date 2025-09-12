@@ -26,7 +26,7 @@ class InstructionTwo(
     val source: Operand,
     override val line: Int
 ) : Instruction {
-    override fun encode(): UByteArray = when (operation) {
+    override fun encode(symbols: Map<String, Long>): UByteArray = when (operation) {
         OperationTwo.MOV -> when (destination) {
             is Register -> when (source) {
                 is Immediate -> {

@@ -40,7 +40,7 @@ sealed interface Instruction {
      * @return A UByteArray representing the machine code for this instruction.
      * @throws error if the instruction or its operands are unsupported for encoding.
      */
-    fun encode(): UByteArray
+    fun encode(symbols: Map<String, Long> = emptyMap()): UByteArray
 
     /**
      * Provides a string representation of the instruction, typically for debugging or display.

@@ -12,7 +12,7 @@ import model.CpuRegister
 import model.Operation
 import model.Operand
 import model.Operand.*
-import model.SymbolEntry
+import model.DataEntry
 import java.io.File
 import java.io.FileNotFoundException
 import java.nio.ByteBuffer
@@ -24,10 +24,10 @@ import kotlin.system.exitProcess
 @OptIn(ExperimentalUnsignedTypes::class)
 class Parser(source: String, private val memory: Memory) : Lexer(source) {
     private val instructions = mutableListOf<Instruction>()
-    private val symbols = mutableListOf<SymbolEntry>()
+    private val dataEntries = mutableListOf<DataEntry>()
     private var currentSegment = Segment.CODE // Tracks segment during parsing
-    private var memoryCursor = 0L // For actual memory writing address
-    private var dataSegmentOffset = 0L // Tracks offset within the data segment for symbol addresses
+
+    private val symbols = mutableMapOf<String, Long>() // Stores symbol addresses
 
     // Segment base addresses and alignment
     val codeSegmentBase: Long = 0L
@@ -47,26 +47,43 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         if (dataSegmentBase >= memory.bytes) error("Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}).")
         if (stackSegmentBase < dataSegmentBase) error("Stack segment base ($stackSegmentBase) is before data segment base ($dataSegmentBase).")
 
+        // For actual memory writing address
+        var memoryCursor = 0L
+
         // 3. Write DATA segment to memory
+        memoryCursor = dataSegmentBase // Start at the calculated base for data
+        println("\nEncoding and writing DATA segment to memory, starting at address $dataSegmentBase...")
+        dataEntries.forEach { dataEntry ->
+            println("Preparing to write dataEntry ${dataEntry.name} (${dataEntry.length} bytes) at memory address $memoryCursor.")
+            if (dataEntry.bytes != null) {
+                for (byte in dataEntry.bytes) {
+                    memory.writeByte(memoryCursor++, byte)
+                }
+            } else {
+                memory.writeByte(memoryCursor++, 0u.toUByte())
+            }
+        }
+        val dataBytesWritten = memoryCursor - dataSegmentBase
+        println("Finished writing DATA segment. Total bytes written to data segment: $dataBytesWritten.")
 
         // 4. Write CODE segment to memory
-        /*memoryCursor = codeSegmentBase
-        println("\nEncoding and writing CODE segment to memory, starting at address $codeSegmentBase...")
-        instructions.forEach { instruction ->
-            val encodedBytes = instruction.encode()
-            val instructionStartAddress = memoryCursor
-            encodedBytes.forEach { byte ->
-                if (memoryCursor < memory.bytes) { // Check memory bounds
-                    memory.writeByte(memoryCursor, byte)
-                    memoryCursor++
-                } else {
-                    error("Memory overflow while writing code segment at address $memoryCursor. Max memory: ${memory.bytes}")
-                }
-            }
-            println("Encoded ${instruction::class.simpleName} to ${encodedBytes.size} bytes at address $instructionStartAddress.")
-        }
-        val endOfCodeAddress = memoryCursor
-        println("Finished writing CODE segment. Total bytes written to code segment: $endOfCodeAddress.")*/
+//        memoryCursor = codeSegmentBase
+//        println("\nEncoding and writing CODE segment to memory, starting at address $codeSegmentBase...")
+//        instructions.forEach { instruction ->
+//            val encodedBytes = instruction.encode()
+//            val instructionStartAddress = memoryCursor
+//            encodedBytes.forEach { byte ->
+//                if (memoryCursor < memory.bytes) { // Check memory bounds
+//                    memory.writeByte(memoryCursor, byte)
+//                    memoryCursor++
+//                } else {
+//                    error("Memory overflow while writing code segment at address $memoryCursor. Max memory: ${memory.bytes}")
+//                }
+//            }
+//            println("Encoded ${instruction::class.simpleName} to ${encodedBytes.size} bytes at address $instructionStartAddress.")
+//        }
+//        val endOfCodeAddress = memoryCursor
+//        println("Finished writing CODE segment. Total bytes written to code segment: $endOfCodeAddress.")
     }
 
 
@@ -111,13 +128,12 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         if (!hasToken() || peekToken().kind != Token.Kind.DATA_DIR) {
             error("Expected data directive (BYTE, WORD, DWORD, QWORD) after identifier '$name' at line $line, found ${if(hasToken()) peekToken().kind else "EOF"}")
         }
-        println("Parsing data definition: $name at line $line, dataSegmentOffset: $dataSegmentOffset")
+        println("Parsing data definition: $name at line $line, dataSegmentOffset: $dataSegmentBase")
 
         val dataValue = nextDataValue()
-        val symbol = SymbolEntry(name, dataSegmentOffset, dataValue.type, dataValue.bytes, line)
-        symbols.add(symbol)
-        dataSegmentOffset += symbol.length // Increment offset by the total size of this data entry
-        println("Added data symbol: $symbol. New dataSegmentOffset: $dataSegmentOffset")
+        val symbol = DataEntry(name, dataValue.type, dataValue.bytes, line)
+        dataEntries.add(symbol)
+        println("Added data symbol: $symbol.")
     }
 
     private fun nextDataValue(): DataValue {
@@ -336,16 +352,16 @@ fun dumpMemorySegments(memory: Memory, parser: Parser) {
     println("Data Segment Base (from parser): ${codeSegmentBase}h")
     println("Stack Segment Base (from parser): ${stackSegmentBase}h")
 
-    println("\nMemory content of Code Segment start (${dataSegmentBase}h):")
-    if (parser.codeSegmentBase < memory.bytes) {
-        val startAddr = parser.codeSegmentBase
+    if (parser.dataSegmentBase < memory.bytes) {
+        println("\nMemory content of Data Segment start (${codeSegmentBase}h):")
+        val startAddr = parser.dataSegmentBase
         val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
         memory.dumpMemory(start = startAddr, end = endAddr)
     }
 
-    if (parser.dataSegmentBase < memory.bytes) {
-        println("\nMemory content of Data Segment start (${codeSegmentBase}h):")
-        val startAddr = parser.dataSegmentBase
+    if (parser.codeSegmentBase < memory.bytes) {
+        println("\nMemory content of Code Segment start (${dataSegmentBase}h):")
+        val startAddr = parser.codeSegmentBase
         val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
         memory.dumpMemory(start = startAddr, end = endAddr)
     }

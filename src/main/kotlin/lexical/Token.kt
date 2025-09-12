@@ -67,5 +67,8 @@ data class Token(val kind: Kind, val text: String, val line: Int) {
         UNKNOWN
     }
 
+    val isNumber: Boolean
+        get() = kind == Kind.NUMBER_HEX || kind == Kind.NUMBER_BIN || kind == Kind.NUMBER_OCT || kind == Kind.NUMBER_DEC
+
     override fun toString(): String = String.format("%-3d: %-16s %s", line, kind, text)
 }

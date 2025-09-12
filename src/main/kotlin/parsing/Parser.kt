@@ -28,6 +28,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
     private var currentSegment = Segment.CODE // Tracks segment during parsing
 
     private val symbols = mutableMapOf<String, Long>() // Stores symbol addresses
+    fun getSymbols(): Map<String, Long> = symbols
 
     // Segment base addresses and alignment
     val codeSegmentBase: Long = 0L
@@ -55,6 +56,8 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         println("\nEncoding and writing DATA segment to memory, starting at address $dataSegmentBase...")
         dataEntries.forEach { dataEntry ->
             println("Preparing to write dataEntry ${dataEntry.name} (${dataEntry.length} bytes) at memory address $memoryCursor.")
+            symbols[dataEntry.name] = memoryCursor // Store the actual memory address
+
             if (dataEntry.bytes != null) {
                 for (byte in dataEntry.bytes) {
                     memory.writeByte(memoryCursor++, byte)
@@ -160,6 +163,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     values.addAll(bytes)
                 }
                 Token.Kind.UNKNOWN -> { // Handle '?'
+                    nextToken() // Consume ? token
                     val bytes = 0u.toBytes(type, valueToken.line) // Use 0 as the placeholder value
                     values.addAll(bytes)
                 }
@@ -372,6 +376,16 @@ fun dumpMemorySegments(memory: Memory, parser: Parser) {
     memory.dumpMemory(start = startAddr, end = endAddr)
 }
 
+fun dumpSymbolTable(symbols: Map<String, Long>) {
+    println("+------------------+----------+")
+    println("| Name             | Address  |")
+    println("+------------------+----------+")
+    symbols.forEach { (name, address) ->
+        println(String.format("| %-16s | %-8X |", name, address))
+    }
+    println("+------------------+----------+")
+}
+
 fun main() {
     val src = try {
         File("src/main/kotlin/main.asm").readText()
@@ -383,6 +397,9 @@ fun main() {
 
     val memory = Memory(1024L) // Example: 1KB of memory
     val parser = Parser(src, memory)
+
+    // --- Symbol table ---
+    dumpSymbolTable(parser.getSymbols())
 
     // --- Memory dump ---
     dumpMemorySegments(memory, parser)

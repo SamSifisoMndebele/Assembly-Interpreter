@@ -1,6 +1,7 @@
 package cpu
 
 import instruction.Instruction
+import instruction.InstructionData
 import instruction.InstructionOne
 import instruction.InstructionTwo
 import instruction.InstructionZero
@@ -505,6 +506,8 @@ class CPU(
                     Operation.OperationTwo.MOVZX -> TODO()
                 }
             }
+
+            is InstructionData -> TODO()
         }
         return false
     }

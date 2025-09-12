@@ -57,6 +57,9 @@ data class Token(val kind: Kind, val text: String, val line: Int) {
         /** Minus operator '-' */
         MINUS,
 
+        /** Multiplication operator '*' */
+        MULT,
+
         /** Segment directive (e.g., .code, .data) */
         SEGMENT,
 

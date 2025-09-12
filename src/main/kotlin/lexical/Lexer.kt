@@ -85,6 +85,7 @@ abstract class Lexer(source: String) {
             input.startsWith(",") -> return Token(Token.Kind.COMMA, ",", line)
             input.startsWith("[") -> return Token(Token.Kind.LBRACKET, "[", line)
             input.startsWith("]") -> return Token(Token.Kind.RBRACKET, "]", line)
+            input.startsWith("*") -> return Token(Token.Kind.MULT, "*", line)
             input.startsWith("+") -> return Token(Token.Kind.PLUS, "+", line)
             input.startsWith("-") -> return Token(Token.Kind.MINUS, "-", line)
         }

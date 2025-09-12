@@ -129,7 +129,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             Token.Kind.IDENTIFIER -> Identifier(token.text)
             Token.Kind.NUMBER_BIN -> Immediate(token.text.removePrefix("0b").removeSuffix("b").toUInt(2))
             Token.Kind.NUMBER_OCT -> Immediate(token.text.removePrefix("0o").removeSuffix("o").toUInt(8))
-            Token.Kind.STRING -> TODO()
+            Token.Kind.STRING -> TODO("String operand parsing not yet implemented")
             Token.Kind.LABEL -> Label(token.text)
             Token.Kind.LBRACKET -> {
                 // Basic memory operand parsing: [imm32] or [reg] or [reg+imm32]

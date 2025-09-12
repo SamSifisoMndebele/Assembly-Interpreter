@@ -35,7 +35,7 @@ abstract class Lexer(source: String) {
         private val decPattern = Pattern.compile("^[-+]?[0-9]+(?:_[0-9]+)*d?", Pattern.CASE_INSENSITIVE)
         private val identifierPattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*")
         private val labelPattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*\\s*:")
-        private val registerPattern = Pattern.compile("^(r[0-9]+|e?[abcd]x|[sd]i|[sb]p)", Pattern.CASE_INSENSITIVE)
+        private val registerPattern = Pattern.compile("^(?i)(e?[abcd]x|[abcd][lh]|[sd]i|[sb]p|[cdefgs]s)", Pattern.CASE_INSENSITIVE)
         private val segmentPattern = Pattern.compile("^(?:section\\s+)?\\.(code|data|stack)", Pattern.CASE_INSENSITIVE)
         private val stringPattern = Pattern.compile("^\"([^\"\\\\]|\\\\.)*\"|^'([^'\\\\]|\\\\.)*'")
         private val dataDirectivePattern = Pattern.compile("^(byte|word|dword|db|dw|dd|dq|dt)", Pattern.CASE_INSENSITIVE)

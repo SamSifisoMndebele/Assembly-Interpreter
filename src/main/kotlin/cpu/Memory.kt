@@ -109,7 +109,7 @@ class Memory(bytes: Long = 65_536) {
      * @param rows The maximum number of rows to print. Defaults to the number of rows required to display the specified range.
      *             It will be coerced to be at most the total number of rows available in memory.
      */
-    fun printMemory(start: Long = 0, end: Long = bytes, rows: Int = ((end - start + 15) / 16).toInt()) {
+    fun dumpMemory(start: Long = 0, end: Long = bytes, rows: Int = ((end - start + 15) / 16).toInt()) {
         println("${BLUE}Memory Dump:$RESET")
         println("${BLUE}Address    | ${(0 until 16).joinToString(" ") { "%02X".format(it) }}$RESET")
         println("${BLUE}-----------|-${"-".repeat(47)}$RESET")
@@ -143,7 +143,7 @@ fun main() {
     memory.writeWord(0x02, 0xEF01u)
     memory.writeDWord(0x04, 0x12345678u)
 
-    memory.printMemory()
+    memory.dumpMemory()
 
     val reset = "\u001B[0m"
     val red = "\u001B[31m"

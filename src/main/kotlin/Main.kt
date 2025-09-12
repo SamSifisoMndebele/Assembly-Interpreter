@@ -23,7 +23,7 @@ fun main(args: Array<String>) {
 //        cpu.run(parsed.instructions)
 
 //        cpu.printRegisters()
-        mem.printMemory()
+        mem.dumpMemory()
     } catch (e: Exception) {
         println("An error occurred during program execution: ${e.message}")
         e.printStackTrace()

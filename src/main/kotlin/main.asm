@@ -1,10 +1,10 @@
 .data
 x DWORD 1234ABCDh
 y WORD 7,5,8,10
-;name BYTE "Sam", 0
-;char BYTE 'A'
-;count WORD 5h
-;sum DWORD ?
+name BYTE "Sam", 0
+char BYTE 'A'
+sum DWORD ?
+count WORD 5h
 
 .code
     push eax

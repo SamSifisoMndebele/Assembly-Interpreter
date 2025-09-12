@@ -94,7 +94,6 @@ abstract class Lexer(source: String) {
         match(labelPattern, Token.Kind.LABEL)?.let {
             return Token(Token.Kind.LABEL, it.text.substringBefore(':').trim(), line)
         }
-        match(registerPattern, Token.Kind.REGISTER)?.let { return it }
         match(hexPattern, Token.Kind.NUMBER_HEX)?.let { return it }
         match(binPattern, Token.Kind.NUMBER_BIN)?.let { return it }
         match(octPattern, Token.Kind.NUMBER_OCT)?.let { return it }
@@ -109,6 +108,7 @@ abstract class Lexer(source: String) {
             }
             return it
         }
+        match(registerPattern, Token.Kind.REGISTER)?.let { return it }
 
         return null
     }

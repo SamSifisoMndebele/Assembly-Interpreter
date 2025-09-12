@@ -114,7 +114,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             error("Expected comma after destination operand for $op at line $line")
         }
 
-        if (!hasToken()) println("Missing or invalid source operand for $op at line $line")
+        if (!hasToken()) error("Missing or invalid source operand for $op at line $line")
         val srcOperand = nextOperand()
 
         return InstructionTwo(op, destOperand, srcOperand, line)

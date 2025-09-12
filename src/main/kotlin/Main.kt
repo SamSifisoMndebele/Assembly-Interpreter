@@ -1,6 +1,5 @@
-import asm.Parser
-import cpu.CPU
 import cpu.Memory
+import parsing.Parser
 import java.io.File
 import java.io.FileNotFoundException
 import kotlin.system.exitProcess
@@ -19,11 +18,11 @@ fun main(args: Array<String>) {
     try {
         val mem = Memory(8)
         val parser = Parser(src, mem)
-        val parsed = parser.parseProgram()
-        val cpu = CPU(mem, parsed.labels, 2)
-        cpu.run(parsed.instructions)
+//        val parsed = parser.parseProgram()
+//        val cpu = CPU(mem, parsed.labels, 2)
+//        cpu.run(parsed.instructions)
 
-        cpu.printRegisters()
+//        cpu.printRegisters()
         mem.printMemory()
     } catch (e: Exception) {
         println("An error occurred during program execution: ${e.message}")

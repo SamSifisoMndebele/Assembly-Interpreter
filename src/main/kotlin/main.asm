@@ -15,7 +15,7 @@ sum DWORD ?
     ADD AX, 7
     MOV BX, AX
     pop ax
-    mov dl, [name+2]
+    mov edx, [y+2]
 
     ; countdown from 3 to 0
     MOV CX, 3

@@ -222,7 +222,7 @@ class CPU(
         }
 
         is Operand.Memory -> {
-            val baseValue = op.base?.let { get32(it) } ?: 0u
+            val baseValue = op.base?.let { get32(TODO()) } ?: 0u
             val displacement = op.disp ?: 0u
             val address = baseValue + displacement
 
@@ -239,6 +239,7 @@ class CPU(
         }
 
         is Label -> labels[op.name] ?: error("Undefined label: ${op.name}")
+        is Identifier -> TODO()
     }
 
     private fun write(op: Operand, value: UInt) {
@@ -254,7 +255,7 @@ class CPU(
             }
 
             is Operand.Memory -> {
-                val baseValue = op.base?.let { get32(it) } ?: 0u
+                val baseValue = op.base?.let { get32(TODO()) } ?: 0u
                 val displacement = op.disp ?: 0u
                 val address = baseValue + displacement
 

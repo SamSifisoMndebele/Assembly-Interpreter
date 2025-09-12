@@ -104,7 +104,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
 
     private fun parseInstructionTwo(op: Operation.OperationTwo, line: Int): InstructionTwo? {
         println("Parsing two-operand instruction: $op at line $line. Operand parsing NOT IMPLEMENTED.")
-
         if (!hasToken()) error("Missing or invalid destination operand for $op at line $line")
         val destOperand = nextOperand()
 

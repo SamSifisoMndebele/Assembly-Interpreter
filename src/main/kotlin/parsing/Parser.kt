@@ -353,7 +353,7 @@ fun dumpMemorySegments(memory: Memory, parser: Parser) {
     println("\nMemory content of Stack Segment start (${stackSegmentBase}h):")
     val endAddr = parser.stackSegmentBase
     val startAddr = max(endAddr - 128, 0) // Print up to 128 bytes or end of memory
-    memory.printMemory(start = startAddr, end = endAddr)
+    memory.dumpMemory(start = startAddr, end = endAddr)
 }
 
 fun main() {

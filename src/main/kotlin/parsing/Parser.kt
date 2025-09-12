@@ -55,7 +55,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         instructions.forEach { println(it) }
     }
 
-    private fun parseOperation(token: Token) {
+    private fun parseInstruction(token: Token) {
         require(token.kind == Token.Kind.OPERATION)
         val operationName = token.text.uppercase()
         val line = token.line

@@ -12,47 +12,175 @@ import model.CpuRegister
 import model.Operation
 import model.Operand
 import model.Operand.*
+import model.SymbolEntry
 import java.io.File
 import java.io.FileNotFoundException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.system.exitProcess
 
+@OptIn(ExperimentalUnsignedTypes::class)
 class Parser(source: String, private val memory: Memory) : Lexer(source) {
-    private var currentSegment = Segment.CODE
-    val instructions = mutableListOf<Instruction>()
+    private val instructions = mutableListOf<Instruction>()
+    private val symbols = mutableListOf<SymbolEntry>()
+    private var currentSegment = Segment.CODE // Tracks segment during parsing
+    private var memoryCursor = 0L // For actual memory writing address
+    private var dataSegmentOffset = 0L // Tracks offset within the data segment for symbol addresses
+
+    // Segment base addresses and alignment
+    val codeSegmentBase: Long = 0L
+    var dataSegmentBase: Long = memory.bytes / 2
+        private set
+    val stackSegmentBase: Long = memory.bytes
 
     init {
         println("Tokens:")
-        getTokens().forEach { println(it) } // Keep this for debugging if you like
-        parseInstructions()
-        // Later, we'll add encoding and memory writing steps here
-    }
+        getTokens().forEach { println(it) } // Debug: Print all tokens first
 
-    private fun parseInstructions() {
-        while (hasToken()) {
-            val token = nextToken()
-            when (token.kind) {
-                Token.Kind.SEGMENT -> {
-                    // Handle segment directives like .code, .data
-                    currentSegment = Segment.valueOf(token.text.removePrefix(".").uppercase())
-                    println("Switched to segment: $currentSegment")
-                }
-                Token.Kind.OPERATION -> {
-                    // The token.text is the mnemonic (e.g., "MOV", "ADD", "NOP")
-                    parseOperation(token)
-                }
-                Token.Kind.LABEL -> {
-                    // Handle label definitions (e.g., "myLabel:")
-                    // For now, we'll just print it. Label handling will be more complex.
-                    println("Found label: ${token.text}")
-                }
-                // Potentially handle other token kinds if necessary, or ignore
-                else -> {
-                    //println("Ignoring token: $token")
+        // 1. Parse source to populate `instructions` list and `symbols` list
+        parseTokens()
+
+        // 2. Write CODE segment to memory
+        /*memoryCursor = codeSegmentBase
+        println("\nEncoding and writing CODE segment to memory, starting at address $codeSegmentBase...")
+        instructions.forEach { instruction ->
+            val encodedBytes = instruction.encode()
+            val instructionStartAddress = memoryCursor
+            encodedBytes.forEach { byte ->
+                if (memoryCursor < memory.bytes) { // Check memory bounds
+                    memory.writeByte(memoryCursor, byte)
+                    memoryCursor++
+                } else {
+                    error("Memory overflow while writing code segment at address $memoryCursor. Max memory: ${memory.bytes}")
                 }
             }
+            println("Encoded ${instruction::class.simpleName} to ${encodedBytes.size} bytes at address $instructionStartAddress.")
         }
-        println("Parsed Instructions:")
-        instructions.forEach { println(it) }
+        val endOfCodeAddress = memoryCursor
+        println("Finished writing CODE segment. Total bytes written to code segment: $endOfCodeAddress.")*/
+
+        // 3. Calculate DATA segment base address
+        // Align the address immediately after the code segment UP to the nearest `dataAlignment` boundary.
+        /*val dataAlignment = 16L
+        dataSegmentBase = (endOfCodeAddress + dataAlignment - 1) / dataAlignment * dataAlignment
+        if (dataSegmentBase >= memory.bytes) {
+            println("Warning: Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}). Adjusting or indicating no space.")
+            dataSegmentBase = memory.bytes // Or handle as an error, depending on desired behavior
+        }
+
+        println("\n--- Segment Information ---")
+        println("Code Segment:   Start = $codeSegmentBase, End = $endOfCodeAddress (Size = $endOfCodeAddress bytes)")
+        println("Data Segment:   Calculated Start = $dataSegmentBase (Aligned to $dataAlignment bytes)")
+        println("Stack Segment:  Top (Grows Down) = $stackSegmentBase")
+
+        // Placeholder for writing actual DATA defined in a .data segment. 
+        // This would involve parsing data definitions (DB, DW, DD, etc.) 
+        // and writing them from `dataSegmentBase` onwards.
+        // currentWriteAddress = dataSegmentBase
+        // ... loop through parsed data items and write them to memory, updating currentWriteAddress ...
+        // println("Finished writing DATA segment.")
+
+        println("\nMemory content after initial setup (first 64 bytes):")
+        memory.printMemory(rows = 4) // Display the first 4 rows (64 bytes)*/
+    }
+
+
+    private fun parseTokens() {
+        currentSegment = Segment.CODE
+
+        while (hasToken()) {
+            val token = nextToken()
+            when(currentSegment) {
+                Segment.DATA -> when (token.kind) {
+                    Token.Kind.SEGMENT -> {
+                        currentSegment = Segment.valueOf(token.text.removePrefix(".").uppercase())
+                        println("Switched to segment: $currentSegment. Resetting parsing address offset for this segment.")
+                    }
+                    Token.Kind.IDENTIFIER -> parseDataDefinition(token)
+                    else -> error("Unexpected token kind: ${token.kind}")
+                }
+                Segment.CODE -> when (token.kind) {
+                    Token.Kind.SEGMENT -> {
+                        currentSegment = Segment.valueOf(token.text.removePrefix(".").uppercase())
+                        println("Switched to segment: $currentSegment. Resetting parsing address offset for this segment.")
+                    }
+                    Token.Kind.OPERATION -> parseInstruction(token)
+                    Token.Kind.LABEL -> {
+                        // Handle label definitions (e.g., "myLabel:")
+                        // For now, we'll just print it. Label handling will be more complex.
+                        println("Found label: ${token.text}")
+                    }
+                    else -> error("Unexpected token kind: ${token.kind}")
+                }
+                Segment.STACK -> TODO("Stack segment not yet implemented")
+            }
+        }
+        println("\nFinished parsing. Found ${instructions.size} instructions (assumed for CODE segment).")
+    }
+
+    private fun parseDataDefinition(token: Token) {
+        require(token.kind == Token.Kind.IDENTIFIER)
+        val name = token.text
+        val line = token.line
+
+        if (!hasToken() || peekToken().kind != Token.Kind.DATA_DIR) {
+            error("Expected data directive (BYTE, WORD, DWORD, QWORD) after identifier '$name' at line $line, found ${if(hasToken()) peekToken().kind else "EOF"}")
+        }
+        println("Parsing data definition: $name at line $line, dataSegmentOffset: $dataSegmentOffset")
+
+        val dataValue = nextDataValue()
+        val symbol = SymbolEntry(name, dataSegmentOffset, dataValue.type, dataValue.bytes, line)
+        symbols.add(symbol)
+        dataSegmentOffset += symbol.length // Increment offset by the total size of this data entry
+        println("Added data symbol: $symbol. New dataSegmentOffset: $dataSegmentOffset")
+    }
+
+    private fun nextDataValue(): DataValue {
+        val token = nextToken() // Consume data directive
+        require(token.kind == Token.Kind.DATA_DIR) { "Expected data directive, found ${token.kind}" }
+        val values = mutableListOf<UByte>()
+        val type = token.text.uppercase()
+        val line = token.line
+        var firstValue = true
+        while (hasToken()) {
+            val valueToken = peekToken()
+            when (valueToken.kind) {
+                Token.Kind.STRING -> {
+                    nextToken() // Consume string token
+                    if (type != "DB" && type != "BYTE") error("Strings can only be defined with BYTE directive at line ${valueToken.line}")
+                    // Remove quotes and convert to UByteArray
+                    valueToken.text.trim('\'', '"').forEach { char ->
+                        values.add(char.code.toUByte())
+                    }
+                }
+                Token.Kind.NUMBER_HEX, Token.Kind.NUMBER_BIN, Token.Kind.NUMBER_OCT, Token.Kind.NUMBER_DEC -> {
+                    nextToken() // Consume number token
+                    val bytes = valueToken.toUInt().toBytes(type, valueToken.line)
+                    values.addAll(bytes)
+                }
+                Token.Kind.UNKNOWN -> { // Handle '?'
+                    val bytes = 0u.toBytes(type, valueToken.line) // Use 0 as the placeholder value
+                    values.addAll(bytes)
+                }
+                else -> {
+                    // If not a value, it might be the end of this definition or a new line/segment
+                    if (firstValue) error("Expected data value for $type at line $line, found ${valueToken.kind}")
+                    return DataValue(type, values.toUByteArray()) // End of current data definition's values
+                }
+            }
+            firstValue = false
+            // Check for comma or end of line/definition
+            if (hasToken() && peekToken().kind == Token.Kind.COMMA) {
+                nextToken() // Consume comma
+                if (!hasToken() || (!peekToken().isNumber && peekToken().kind != Token.Kind.STRING)) {
+                    error("Expected data value after comma for $type at line $line")
+                }
+            } else break // No comma, so end of values for this definition
+        }
+        if (firstValue) error("Expected data value for $type at line $line but found none.")
+        return DataValue(type, values.toUByteArray())
     }
 
     private fun parseInstruction(token: Token) {
@@ -64,7 +192,8 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             it.simpleName?.uppercase() == operationName
         }?.objectInstance as Operation.OperationZero?
         if (operationZero != null) {
-            parseInstructionZero(operationZero, line).let { instructions.add(it) }
+            println("Parsing zero-operand instruction: $operationZero at line $line.")
+            instructions.add(InstructionZero(operationZero, line))
             return
         }
 
@@ -72,7 +201,10 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             it.simpleName?.uppercase() == operationName
         }?.objectInstance as Operation.OperationOne?
         if (operationOne != null) {
-            parseInstructionOne(operationOne, line)?.let { instructions.add(it) }
+            println("Parsing one-operand instruction: $operationOne at line $line.")
+            if (!hasToken()) error("Expected operand for $operationOne at line $line, but found no more tokens.")
+            val operand = nextOperand()
+            instructions.add(InstructionOne(operationOne, operand, line))
             return
         }
 
@@ -80,42 +212,20 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             it.simpleName?.uppercase() == operationName
         }?.objectInstance as Operation.OperationTwo?
         if (operationTwo != null) {
-            parseInstructionTwo(operationTwo, line)?.let { instructions.add(it) }
+            println("Parsing two-operand instruction: $operationTwo at line $line.")
+            if (!hasToken()) error("Missing or invalid destination operand for $operationTwo at line $line")
+            val destOperand = nextOperand()
+            if (!hasToken() || nextToken().kind != Token.Kind.COMMA) {
+                if (hasPrevious()) previousToken()
+                error("Expected comma after destination operand for $operationTwo at line $line")
+            }
+            if (!hasToken()) error("Missing or invalid source operand for $operationTwo at line $line")
+            val srcOperand = nextOperand()
+            instructions.add(InstructionTwo(operationTwo, destOperand, srcOperand, line))
             return
         }
-        
+
         error("Unknown operation '${token.text}' at line $line")
-    }
-
-    private fun parseInstructionZero(op: Operation.OperationZero, line: Int): InstructionZero {
-        println("Parsing zero-operand instruction: $op at line $line.")
-        return InstructionZero(op, line)
-    }
-
-    private fun parseInstructionOne(op: Operation.OperationOne, line: Int): InstructionOne? {
-        println("Parsing one-operand instruction: $op at line $line.")
-        if (hasToken()) {
-            val operand = nextOperand()
-            return InstructionOne(op, operand, line)
-        }
-        error("Expected operand for $op at line $line, but found no more tokens.")
-    }
-
-    private fun parseInstructionTwo(op: Operation.OperationTwo, line: Int): InstructionTwo? {
-        println("Parsing two-operand instruction: $op at line $line. Operand parsing NOT IMPLEMENTED.")
-        if (!hasToken()) error("Missing or invalid destination operand for $op at line $line")
-        val destOperand = nextOperand()
-
-        if (!hasToken() || nextToken().kind != Token.Kind.COMMA) {
-            // Backtrack if we consumed a token that wasn't a comma
-            if (hasPrevious()) previousToken()
-            error("Expected comma after destination operand for $op at line $line")
-        }
-
-        if (!hasToken()) error("Missing or invalid source operand for $op at line $line")
-        val srcOperand = nextOperand()
-
-        return InstructionTwo(op, destOperand, srcOperand, line)
     }
 
     private fun nextOperand(): Operand {
@@ -131,7 +241,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             Token.Kind.LABEL -> Label(token.text)
             Token.Kind.LBRACKET -> {
                 // Basic memory operand parsing: [imm32] or [reg] or [reg+imm32]
-                // This is a simplified version and needs to be much more robust
                 if (!hasToken()) error("Incomplete memory operand at line ${token.line}")
                 var next = nextToken()
                 var base: Operand? = null
@@ -141,8 +250,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     error("Expected register, identifier, or immediate value for memory operand at line ${token.line}")
 
                 if (next.kind == Token.Kind.REGISTER) {
-                    val baseReg = CpuRegister.valueOf(next.text.uppercase())
-                    base = Register(baseReg)
+                    base = Register(CpuRegister.valueOf(next.text.uppercase()))
                     if (!hasToken()) error("Expected ']' or '+' after register in memory operand at line ${token.line}")
                     next = nextToken() // Consume for '+' or ']'
                 } else if (next.kind == Token.Kind.IDENTIFIER) {
@@ -155,35 +263,114 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     if (!hasToken()) error("Expected displacement after '+' in memory operand at line ${token.line}")
                     next = nextToken() // Should be a number
                     if (next.isNumber) {
-                        displacement = when (next.kind) {
-                            Token.Kind.NUMBER_HEX -> next.text.removePrefix("0x").removeSuffix("h").toUInt(16)
-                            Token.Kind.NUMBER_BIN -> next.text.removePrefix("0b").removeSuffix("b").toUInt(2)
-                            Token.Kind.NUMBER_OCT -> next.text.removePrefix("0o").removeSuffix("o").toUInt(8)
-                            else -> next.text.toUInt()
-                        }
+                        displacement = next.toUInt()
                         if (!hasToken()) error("Expected ']' after displacement in memory operand at line ${token.line}")
                         next = nextToken() // Consume for ']'
+                    } else if (next.kind == Token.Kind.IDENTIFIER) {
+                        // TODO: Handle [REG + IDENTIFIER] or [IDENTIFIER + IDENTIFIER] if needed (SIB-like)
+                        error("Symbolic displacement (e.g., [REG + mySymbol]) not yet fully supported. Use immediate value. Line ${next.line}")
                     } else {
-                        error("Expected number for displacement in memory operand at line ${token.line}")
+                        error("Expected number for displacement in memory operand at line ${next.line}")
                     }
-                } else if (next.isNumber) {
-                    // Case: [imm32]
-                    displacement = when (next.kind) {
-                        Token.Kind.NUMBER_HEX -> next.text.removePrefix("0x").removeSuffix("h").toUInt(16)
-                        Token.Kind.NUMBER_BIN -> next.text.removePrefix("0b").removeSuffix("b").toUInt(2)
-                        Token.Kind.NUMBER_OCT -> next.text.removePrefix("0o").removeSuffix("o").toUInt(8)
-                        else -> next.text.toUInt()
-                    }
-                    if (!hasToken()) error("Expected ']' after displacement in memory operand at line ${token.line}")
+                } else if (next.isNumber && base == null) { // Case: [imm32] - base was not set
+                    displacement = next.toUInt()
+                    if (!hasToken()) error("Expected ']' after immediate address in memory operand at line ${token.line}")
                     next = nextToken() // Check for ']'
                 }
+                // If 'next' is already RBRACKET here, it means [REG] or [IDENTIFIER] cases were handled
 
-                if (next.kind != Token.Kind.RBRACKET) error("Expected ']' to close memory operand at line ${next.line}")
+                if (next.kind != Token.Kind.RBRACKET) error("Expected ']' to close memory operand at line ${next.line}, found ${next.kind}")
+
                 return Memory(base, displacement)
             }
-            else -> error("Unknown operand type at line ${token.line}")
+            else -> error("Unknown or unexpected operand type: ${token.kind} ('${token.text}') at line ${token.line}")
         }
     }
+
+    companion object {
+        private fun Token.toUInt(): UInt {
+            require(isNumber) { "Token is not a number: $this" }
+            return when (kind) {
+                Token.Kind.NUMBER_HEX -> text.removePrefix("0x").removeSuffix("h").toUInt(16)
+                Token.Kind.NUMBER_BIN -> text.removePrefix("0b").removeSuffix("b").toUInt(2)
+                Token.Kind.NUMBER_OCT -> text.removePrefix("0o").removeSuffix("o").toUInt(8)
+                Token.Kind.NUMBER_DEC -> text.toUInt()
+                else -> error("Invalid token kind for number conversion: $kind at line $line")
+            }
+        }
+
+        private fun UInt.toBytes(type: String, line: Int): UByteArray {
+            val size = when (type) {
+                "BYTE", "DB" -> 1
+                "WORD", "DW" -> 2
+                "DWORD", "DD" -> 4
+                "QWORD", "DQ" -> 8
+                else -> error("Unknown data directive type: $type at line $line")
+            }
+            val buffer = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN)
+            when (size) {
+                1 -> buffer.put(toByte())
+                2 -> buffer.putShort(toShort())
+                4 -> buffer.putInt(toInt())
+                8 -> buffer.putLong(toLong())
+            }
+            return buffer.array().toUByteArray()
+        }
+
+        data class DataValue(
+            val type: String,
+            val bytes: UByteArray
+        ) {
+            override fun equals(other: Any?): Boolean {
+                if (this === other) return true
+                if (javaClass != other?.javaClass) return false
+
+                other as DataValue
+
+                if (type != other.type) return false
+                if (!bytes.contentEquals(other.bytes)) return false
+
+                return true
+            }
+
+            override fun hashCode(): Int {
+                var result = type.hashCode()
+                result = 31 * result + bytes.contentHashCode()
+                return result
+            }
+        }
+    }
+}
+
+fun dumpMemorySegments(memory: Memory, parser: Parser) {
+    val dataSegmentBase = parser.codeSegmentBase.toString(16)
+    val codeSegmentBase = parser.dataSegmentBase.toString(16)
+    val stackSegmentBase = parser.stackSegmentBase.toString(16)
+
+    println("\n--- Main function reporting --- ")
+    println("Parser instance created. Check console output for parsing details and memory layout.")
+    println("Code Segment Base (from parser): ${dataSegmentBase}h")
+    println("Data Segment Base (from parser): ${codeSegmentBase}h")
+    println("Stack Segment Base (from parser): ${stackSegmentBase}h")
+
+    println("\nMemory content around calculated Code Segment start (${dataSegmentBase}h):")
+    if (parser.codeSegmentBase < memory.bytes) {
+        val startAddr = parser.codeSegmentBase
+        val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
+        memory.printMemory(start = startAddr, end = endAddr)
+    }
+
+    if (parser.dataSegmentBase < memory.bytes) {
+        println("\nMemory content around calculated Data Segment start (${codeSegmentBase}h):")
+        val startAddr = parser.dataSegmentBase
+        val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
+        memory.printMemory(start = startAddr, end = endAddr)
+    }
+
+    println("\nMemory content around calculated Stack Segment start (${stackSegmentBase}h):")
+    val endAddr = parser.stackSegmentBase
+    val startAddr = max(endAddr - 128, 0) // Print up to 128 bytes or end of memory
+    memory.printMemory(start = startAddr, end = endAddr)
 }
 
 fun main() {
@@ -195,11 +382,12 @@ fun main() {
         exitProcess(1)
     }
 
-    val memory = Memory(1024L)
+    val memory = Memory(1024L) // Example: 1KB of memory
     val parser = Parser(src, memory)
 
-    println("Instructions:")
-    parser.instructions.forEach { println(it) }
+    // --- Memory dump ---
+    dumpMemorySegments(memory, parser)
 
+//    // --- Full memory dump ---
 //    memory.printMemory()
 }

@@ -102,22 +102,25 @@ class Memory(bytes: Long = 65_536) {
     }
 
     /**
-     * Prints the memory content in a human-readable format.
+     * Prints the memory content in a human-readable format, allowing for a specified range and number of rows.
      *
-     * @param rows The number of rows to print. Defaults to the number of rows available in memory.
+     * @param start The starting memory address to print. Defaults to 0.
+     * @param end The ending memory address to print (exclusive). Defaults to the total size of the memory.
+     * @param rows The maximum number of rows to print. Defaults to the number of rows required to display the specified range.
+     *             It will be coerced to be at most the total number of rows available in memory.
      */
-    fun printMemory(rows: Int = ((bytes + 15) / 16).toInt().coerceAtLeast(1)) {
+    fun printMemory(start: Long = 0, end: Long = bytes, rows: Int = ((end - start + 15) / 16).toInt()) {
         println("${BLUE}Memory Dump:$RESET")
         println("${BLUE}Address    | ${(0 until 16).joinToString(" ") { "%02X".format(it) }}$RESET")
         println("${BLUE}-----------|-${"-".repeat(47)}$RESET")
         val actualRows = rows.coerceAtMost(((bytes + 15) / 16).toInt().coerceAtLeast(1))
         val bold = BOLD
         for (i in 0 until actualRows) {
-            val baseAddr = i * 16L
+            val baseAddr = start + i * 16L
             print("$YELLOW%08X$RESET   | ".format(baseAddr))
             for (j in 0 until 16) {
                 val addr = baseAddr + j
-                if (addr < bytes) {
+                if (addr < end && addr < bytes) {
                     val byteValue = readByte(addr)
                     val color = if (byteValue == 0u.toUByte()) "" else "$GREEN$bold"
                     print("$color%02X $RESET".format(byteValue.toShort()))

@@ -1,7 +1,7 @@
 package cpu
 
 import instruction.Instruction
-import instruction.InstructionData
+import model.SymbolEntry
 import instruction.InstructionOne
 import instruction.InstructionTwo
 import instruction.InstructionZero
@@ -507,7 +507,7 @@ class CPU(
                 }
             }
 
-            is InstructionData -> TODO()
+            is SymbolEntry -> TODO()
         }
         return false
     }

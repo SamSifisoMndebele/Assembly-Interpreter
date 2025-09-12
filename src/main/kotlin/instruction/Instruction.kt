@@ -4,7 +4,6 @@ import model.CpuRegister
 import model.Operand
 import model.Operand.Immediate
 import model.Operand.Memory
-import model.Operation
 import model.Operation.OperationOne
 import model.Operation.OperationTwo
 import model.Operation.OperationZero
@@ -24,11 +23,6 @@ import model.Operation.OperationZero
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 sealed interface Instruction {
-    /**
-     * The operation to be performed.
-     */
-    val operation: Operation
-
     /**
      * The line number of the instruction in the source code.
      */

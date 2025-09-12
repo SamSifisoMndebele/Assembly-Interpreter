@@ -1,11 +1,18 @@
 package instruction
 
 import model.Operand
+import model.Operation
 import model.Operation.OperationOne
 
+/**
+ * Represents an instruction with one operand.
+ * @property operation The operation to be performed.
+ * @property operand The operand of the instruction.
+ * @property line The line number of the instruction in the source code.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionOne(
-    override val operation: OperationOne,
+    val operation: OperationOne,
     val operand: Operand,
     override val line: Int
 ) : Instruction {

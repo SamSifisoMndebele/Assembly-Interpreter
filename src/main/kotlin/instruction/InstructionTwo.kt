@@ -7,9 +7,21 @@ import model.Operand.Memory
 import model.Operand.Register
 import model.Operation.OperationTwo
 
+/**
+ * Represents a two-operand instruction.
+ *
+ * This class handles the encoding of instructions that operate on two operands,
+ * such as MOV, ADD, SUB, etc. It determines the correct opcode and ModR/M byte
+ * based on the types of the destination and source operands.
+ *
+ * @property operation The specific operation to be performed (e.g., MOV, ADD).
+ * @property destination The destination operand.
+ * @property source The source operand.
+ * @property line The line number in the source code where this instruction was defined.
+ */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionTwo(
-    override val operation: OperationTwo,
+    val operation: OperationTwo,
     val destination: Operand,
     val source: Operand,
     override val line: Int

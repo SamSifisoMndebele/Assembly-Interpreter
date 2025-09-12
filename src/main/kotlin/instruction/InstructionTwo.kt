@@ -21,7 +21,7 @@ import model.Operation.OperationTwo
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionTwo(
-    val operation: OperationTwo,
+    override val operation: OperationTwo,
     val destination: Operand,
     val source: Operand,
     override val line: Int

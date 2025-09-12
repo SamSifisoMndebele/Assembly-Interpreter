@@ -12,7 +12,7 @@ import model.Operation
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionZero(
-    val operation: Operation.OperationZero,
+    override val operation: Operation.OperationZero,
     override val line: Int
 ) : Instruction {
     override fun encode(): UByteArray = when (operation) {

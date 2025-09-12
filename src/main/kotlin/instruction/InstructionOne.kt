@@ -12,7 +12,7 @@ import model.Operation.OperationOne
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionOne(
-    val operation: OperationOne,
+    override val operation: OperationOne,
     val operand: Operand,
     override val line: Int
 ) : Instruction {

@@ -83,8 +83,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             parseInstructionTwo(operationTwo, line)?.let { instructions.add(it) }
             return
         }
-
-
+        
         error("Unknown operation '${token.text}' at line $line")
     }
 

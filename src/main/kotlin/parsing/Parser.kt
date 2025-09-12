@@ -89,7 +89,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
     }
 
     private fun parseInstructionZero(op: Operation.OperationZero, line: Int): InstructionZero {
-        // InstructionZero has no operands to parse from tokens
+        println("Parsing zero-operand instruction: $op at line $line.")
         return InstructionZero(op, line)
     }
 

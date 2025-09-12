@@ -153,8 +153,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     next = nextToken() // Consume for '+' or ']'
                 }
 
-
-
                 if (next.kind == Token.Kind.PLUS) {
                     if (!hasToken()) error("Expected displacement after '+' in memory operand at line ${token.line}")
                     next = nextToken() // Should be a number

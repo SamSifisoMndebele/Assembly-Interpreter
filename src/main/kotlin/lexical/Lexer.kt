@@ -44,6 +44,7 @@ abstract class Lexer(source: String) {
     }
 
     private val tokens = mutableListOf<Token>()
+    private val labels = mutableSetOf<String>()
 
     init {
         val lines = source
@@ -54,10 +55,14 @@ abstract class Lexer(source: String) {
 
         for ((i, line) in lines.withIndex()) {
             var rest = line
+            var currentLineNumber = i + 1
             while (rest.isNotEmpty()) {
-                val token = matchToken(rest, i + 1)
+                val token = matchToken(rest, currentLineNumber)
                 if (token != null) {
                     tokens += token
+                    if (token.kind == Token.Kind.LABEL) {
+                        labels.add(token.text)
+                    }
                     rest = rest.substring(token.text.length)
                         .trimStart(' ', '\t', '\r', '\n', ':')
                 } else {
@@ -95,8 +100,12 @@ abstract class Lexer(source: String) {
         match(decPattern, Token.Kind.NUMBER_DEC)?.let { return it }
         match(stringPattern, Token.Kind.STRING)?.let { return it }
         match(identifierPattern, Token.Kind.IDENTIFIER)?.let {
-            if (operations.contains(it.text.lowercase()))
+            if (operations.contains(it.text.lowercase())) {
                 return Token(Token.Kind.OPERATION, it.text, line)
+            }
+            if (labels.contains(it.text)) {
+                return Token(Token.Kind.LABEL, it.text, line)
+            }
             return it
         }
 

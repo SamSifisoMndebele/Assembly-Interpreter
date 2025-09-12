@@ -340,7 +340,7 @@ fun dumpMemorySegments(memory: Memory, parser: Parser) {
     if (parser.codeSegmentBase < memory.bytes) {
         val startAddr = parser.codeSegmentBase
         val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
-        memory.printMemory(start = startAddr, end = endAddr)
+        memory.dumpMemory(start = startAddr, end = endAddr)
     }
 
     if (parser.dataSegmentBase < memory.bytes) {

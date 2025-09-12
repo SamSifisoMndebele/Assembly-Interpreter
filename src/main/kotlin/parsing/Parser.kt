@@ -31,7 +31,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
 
     // Segment base addresses and alignment
     val codeSegmentBase: Long = 0L
-    var dataSegmentBase: Long = memory.bytes / 2
+    var dataSegmentBase: Long = 0L
         private set
     val stackSegmentBase: Long = memory.bytes
 
@@ -42,7 +42,14 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         // 1. Parse source to populate `instructions` list and `symbols` list
         parseTokens()
 
-        // 2. Write CODE segment to memory
+        // 2. Calculate DATA segment base address
+        dataSegmentBase = instructions.size * 16L
+        if (dataSegmentBase >= memory.bytes) error("Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}).")
+        if (stackSegmentBase < dataSegmentBase) error("Stack segment base ($stackSegmentBase) is before data segment base ($dataSegmentBase).")
+
+        // 3. Write DATA segment to memory
+
+        // 4. Write CODE segment to memory
         /*memoryCursor = codeSegmentBase
         println("\nEncoding and writing CODE segment to memory, starting at address $codeSegmentBase...")
         instructions.forEach { instruction ->
@@ -60,30 +67,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         }
         val endOfCodeAddress = memoryCursor
         println("Finished writing CODE segment. Total bytes written to code segment: $endOfCodeAddress.")*/
-
-        // 3. Calculate DATA segment base address
-        // Align the address immediately after the code segment UP to the nearest `dataAlignment` boundary.
-        /*val dataAlignment = 16L
-        dataSegmentBase = (endOfCodeAddress + dataAlignment - 1) / dataAlignment * dataAlignment
-        if (dataSegmentBase >= memory.bytes) {
-            println("Warning: Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}). Adjusting or indicating no space.")
-            dataSegmentBase = memory.bytes // Or handle as an error, depending on desired behavior
-        }
-
-        println("\n--- Segment Information ---")
-        println("Code Segment:   Start = $codeSegmentBase, End = $endOfCodeAddress (Size = $endOfCodeAddress bytes)")
-        println("Data Segment:   Calculated Start = $dataSegmentBase (Aligned to $dataAlignment bytes)")
-        println("Stack Segment:  Top (Grows Down) = $stackSegmentBase")
-
-        // Placeholder for writing actual DATA defined in a .data segment. 
-        // This would involve parsing data definitions (DB, DW, DD, etc.) 
-        // and writing them from `dataSegmentBase` onwards.
-        // currentWriteAddress = dataSegmentBase
-        // ... loop through parsed data items and write them to memory, updating currentWriteAddress ...
-        // println("Finished writing DATA segment.")
-
-        println("\nMemory content after initial setup (first 64 bytes):")
-        memory.printMemory(rows = 4) // Display the first 4 rows (64 bytes)*/
     }
 
 
@@ -353,7 +336,7 @@ fun dumpMemorySegments(memory: Memory, parser: Parser) {
     println("Data Segment Base (from parser): ${codeSegmentBase}h")
     println("Stack Segment Base (from parser): ${stackSegmentBase}h")
 
-    println("\nMemory content around calculated Code Segment start (${dataSegmentBase}h):")
+    println("\nMemory content of Code Segment start (${dataSegmentBase}h):")
     if (parser.codeSegmentBase < memory.bytes) {
         val startAddr = parser.codeSegmentBase
         val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
@@ -361,13 +344,13 @@ fun dumpMemorySegments(memory: Memory, parser: Parser) {
     }
 
     if (parser.dataSegmentBase < memory.bytes) {
-        println("\nMemory content around calculated Data Segment start (${codeSegmentBase}h):")
+        println("\nMemory content of Data Segment start (${codeSegmentBase}h):")
         val startAddr = parser.dataSegmentBase
         val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
         memory.printMemory(start = startAddr, end = endAddr)
     }
 
-    println("\nMemory content around calculated Stack Segment start (${stackSegmentBase}h):")
+    println("\nMemory content of Stack Segment start (${stackSegmentBase}h):")
     val endAddr = parser.stackSegmentBase
     val startAddr = max(endAddr - 128, 0) // Print up to 128 bytes or end of memory
     memory.printMemory(start = startAddr, end = endAddr)

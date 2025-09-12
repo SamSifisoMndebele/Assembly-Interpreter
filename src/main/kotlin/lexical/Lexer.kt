@@ -2,6 +2,7 @@ package lexical
 
 import model.Operation.Companion.allOperations
 import java.util.regex.Pattern
+import kotlin.NoSuchElementException
 
 /**
  * The Lexer class is responsible for tokenizing the input source code.
@@ -112,7 +113,14 @@ abstract class Lexer(source: String) {
         return null
     }
 
-    private val tokensIterator = tokens.listIterator()
+    private var index = -1
+
+    /**
+     * Checks if there are more tokens to be processed.
+     *
+     * @return `true` if there are more tokens, `false` otherwise.
+     */
+    fun hasToken(): Boolean = index < tokens.size - 1
 
     /**
      * Returns the next token from the input source code.
@@ -120,14 +128,23 @@ abstract class Lexer(source: String) {
      * @return The next token, or throws an exception if there are no more tokens.
      * @throws NoSuchElementException if there are no more tokens.
      */
-    fun nextToken(): Token = tokensIterator.next()
+    fun nextToken(): Token {
+        if (index >= tokens.size) throw NoSuchElementException()
+        return tokens[++index]
+    }
 
     /**
-     * Checks if there are more tokens to be processed.
+     * Peeks at the next token in the stream without consuming it.
+     * This function allows you to look ahead at the next token that would be returned by [nextToken],
+     * without advancing the iterator.
      *
-     * @return `true` if there are more tokens, `false` otherwise.
+     * @return The next token in the stream.
+     * @throws NoSuchElementException if there are no more tokens.
      */
-    fun hasToken(): Boolean = tokensIterator.hasNext()
+    fun peekToken(): Token {
+        if (index >= tokens.size) throw NoSuchElementException()
+        return tokens[index + 1]
+    }
 
     /**
      * Returns the previous token from the input source code.
@@ -136,7 +153,10 @@ abstract class Lexer(source: String) {
      * @return The previous token.
      * @throws NoSuchElementException if there is no previous token (e.g., at the beginning of the token stream).
      */
-    fun previousToken(): Token = tokensIterator.previous()
+    fun previousToken(): Token {
+        if (index <= 0) throw NoSuchElementException()
+        return tokens[--index]
+    }
 
     /**
      * Checks if there is a previous token.
@@ -145,7 +165,7 @@ abstract class Lexer(source: String) {
      *
      * @return `true` if there is a previous token, `false` otherwise.
      */
-    fun hasPrevious(): Boolean = tokensIterator.hasPrevious()
+    fun hasPrevious(): Boolean = index > 0
 
     /**
      * Returns a list of all tokens generated from the input source code.

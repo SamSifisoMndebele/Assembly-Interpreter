@@ -111,24 +111,29 @@ class Memory(bytes: Long = 65_536) {
      */
     fun dumpMemory(start: Long = 0, end: Long = bytes, rows: Int = ((end - start + 15) / 16).toInt()) {
         println("${BLUE}Memory Dump:$RESET")
-        println("${BLUE}Address    | ${(0 until 16).joinToString(" ") { "%02X".format(it) }}$RESET")
+        println("${BLUE}Address    | ${(0 until 16).joinToString(" ") { "%2X".format(it) }}$RESET")
         println("${BLUE}-----------|-${"-".repeat(47)}$RESET")
         val actualRows = rows.coerceAtMost(((bytes + 15) / 16).toInt().coerceAtLeast(1))
-        val bold = BOLD
         for (i in 0 until actualRows) {
             val baseAddr = start + i * 16L
             print("$YELLOW%08X$RESET   | ".format(baseAddr))
+            var addr = 0L
             for (j in 0 until 16) {
-                val addr = baseAddr + j
-                if (addr < end && addr < bytes) {
-                    val byteValue = readByte(addr)
-                    val color = if (byteValue == 0u.toUByte()) "" else "$GREEN$bold"
-                    print("$color%02X $RESET".format(byteValue.toShort()))
+                addr = baseAddr + j
+                if (addr < bytes) {
+                    val byteValue = readByte(addr).toShort()
+                    val color = when {
+                        addr < end && byteValue == 0.toShort() -> BOLD
+                        byteValue == 0.toShort() -> ""
+                        else -> "$GREEN$BOLD"
+                    }
+                    print("$color%02X $RESET".format(byteValue))
                 } else {
                     print("   ")
                 }
             }
             println()
+            if (addr >= end) break
         }
     }
 }

@@ -19,6 +19,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.min
 import kotlin.system.exitProcess
+import kotlin.text.toLong
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class Parser(source: String, private val memory: Memory) : Lexer(source) {
@@ -61,8 +62,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         var memoryCursor = 0L
 
         // 3. Write DATA segment to memory
-        memoryCursor = dataSegmentBase // Start at the calculated base for data
-        print("\nEncoding and writing DATA segment to memory.")
+        memoryCursor = dataSegmentBase
         dataEntries.forEach { dataEntry ->
             symbols[dataEntry.name] = memoryCursor // Store the actual memory address
             if (dataEntry.bytes != null) {
@@ -82,9 +82,8 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
 
         // 4. Write CODE segment to memory
         memoryCursor = codeSegmentBase
-        print("\nEncoding and writing CODE segment to memory.")
         instructions.forEach { instruction ->
-            val encodedBytes = instruction.encode()
+            val encodedBytes = instruction.encode(symbols)
             encodedBytes.forEach { byte ->
                 if (memoryCursor < memory.bytes) { // Check memory bounds
                     memory.writeByte(memoryCursor, byte)
@@ -122,7 +121,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                 Segment.DATA -> when (token.kind) {
                     Token.Kind.SEGMENT -> {
                         currentSegment = Segment.valueOf(token.text.removePrefix(".").uppercase())
-                        println("Switched to segment: $currentSegment. Resetting parsing address offset for this segment.")
                     }
                     Token.Kind.IDENTIFIER -> parseDataDefinition(token)
                     else -> error("Unexpected token kind: ${token.kind}")
@@ -130,7 +128,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                 Segment.CODE -> when (token.kind) {
                     Token.Kind.SEGMENT -> {
                         currentSegment = Segment.valueOf(token.text.removePrefix(".").uppercase())
-                        println("Switched to segment: $currentSegment. Resetting parsing address offset for this segment.")
                     }
                     Token.Kind.OPERATION -> parseInstruction(token)
                     Token.Kind.LABEL -> {
@@ -143,7 +140,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                 Segment.STACK -> TODO("Stack segment not yet implemented")
             }
         }
-        println("\nFinished parsing. Found ${instructions.size} instructions (assumed for CODE segment).")
     }
 
     private fun parseDataDefinition(token: Token) {
@@ -154,12 +150,10 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         if (!hasToken() || peekToken().kind != Token.Kind.DATA_DIR) {
             error("Expected data directive (BYTE, WORD, DWORD, QWORD) after identifier '$name' at line $line, found ${if(hasToken()) peekToken().kind else "EOF"}")
         }
-        println("Parsing data definition: $name at line $line, dataSegmentOffset: $dataSegmentBase")
 
         val dataValue = nextDataValue()
         val symbol = DataEntry(name, dataValue.type, dataValue.bytes, line)
         dataEntries.add(symbol)
-        println("Added data symbol: $symbol.")
     }
 
     private fun nextDataValue(): DataValue {
@@ -218,7 +212,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             it.simpleName?.uppercase() == operationName
         }?.objectInstance as Operation.OperationZero?
         if (operationZero != null) {
-            println("Parsing zero-operand instruction: $operationZero at line $line.")
             instructions.add(InstructionZero(operationZero, line))
             return
         }
@@ -227,7 +220,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             it.simpleName?.uppercase() == operationName
         }?.objectInstance as Operation.OperationOne?
         if (operationOne != null) {
-            println("Parsing one-operand instruction: $operationOne at line $line.")
             if (!hasToken()) error("Expected operand for $operationOne at line $line, but found no more tokens.")
             val operand = nextOperand()
             instructions.add(InstructionOne(operationOne, operand, line))
@@ -238,7 +230,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             it.simpleName?.uppercase() == operationName
         }?.objectInstance as Operation.OperationTwo?
         if (operationTwo != null) {
-            println("Parsing two-operand instruction: $operationTwo at line $line.")
             if (!hasToken()) error("Missing or invalid destination operand for $operationTwo at line $line")
             val destOperand = nextOperand()
             if (!hasToken() || nextToken().kind != Token.Kind.COMMA) {
@@ -266,11 +257,11 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             Token.Kind.STRING -> TODO("String operand parsing not yet implemented")
             Token.Kind.LABEL -> Label(token.text)
             Token.Kind.LBRACKET -> {
-                // Basic memory operand parsing: [imm32] or [reg] or [reg+imm32]
+                // Memory operand parsing: [base + index*scale + displacement]
                 if (!hasToken()) error("Incomplete memory operand at line ${token.line}")
                 var next = nextToken()
-                var base: Operand? = null
-                var displacement: UInt? = null
+                var base: Register? = null
+                var displacement: Long? = null
 
                 if (next.kind != Token.Kind.REGISTER && next.kind != Token.Kind.IDENTIFIER && !next.isNumber)
                     error("Expected register, identifier, or immediate value for memory operand at line ${token.line}")
@@ -280,7 +271,8 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     if (!hasToken()) error("Expected ']' or '+' after register in memory operand at line ${token.line}")
                     next = nextToken() // Consume for '+' or ']'
                 } else if (next.kind == Token.Kind.IDENTIFIER) {
-                    base = Identifier(next.text)
+                    val addr = symbols[next.text] ?: error("Undefined symbol '${next.text}' used in memory operand at line ${token.line}")
+                    displacement = addr
                     if (!hasToken()) error("Expected ']' or '+' after identifier in memory operand at line ${token.line}")
                     next = nextToken() // Consume for '+' or ']'
                 }
@@ -289,7 +281,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     if (!hasToken()) error("Expected displacement after '+' in memory operand at line ${token.line}")
                     next = nextToken() // Should be a number
                     if (next.isNumber) {
-                        displacement = next.toUInt()
+                        displacement = next.toLong()
                         if (!hasToken()) error("Expected ']' after displacement in memory operand at line ${token.line}")
                         next = nextToken() // Consume for ']'
                     } else if (next.kind == Token.Kind.IDENTIFIER) {
@@ -299,7 +291,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                         error("Expected number for displacement in memory operand at line ${next.line}")
                     }
                 } else if (next.isNumber && base == null) { // Case: [imm32] - base was not set
-                    displacement = next.toUInt()
+                    displacement = next.toLong()
                     if (!hasToken()) error("Expected ']' after immediate address in memory operand at line ${token.line}")
                     next = nextToken() // Check for ']'
                 }
@@ -307,7 +299,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
 
                 if (next.kind != Token.Kind.RBRACKET) error("Expected ']' to close memory operand at line ${next.line}, found ${next.kind}")
 
-                return Memory(base, displacement)
+                return Memory(base, disp = displacement?.toLong())
             }
             else -> error("Unknown or unexpected operand type: ${token.kind} ('${token.text}') at line ${token.line}")
         }
@@ -326,6 +318,17 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                 Token.Kind.NUMBER_BIN -> text.removePrefix("0b").removeSuffix("b").toUInt(2)
                 Token.Kind.NUMBER_OCT -> text.removePrefix("0o").removeSuffix("o").toUInt(8)
                 Token.Kind.NUMBER_DEC -> text.toUInt()
+                else -> error("Invalid token kind for number conversion: $kind at line $line")
+            }
+        }
+
+        private fun Token.toLong(): Long {
+            require(isNumber) { "Token is not a number: $this" }
+            return when (kind) {
+                Token.Kind.NUMBER_HEX -> text.removePrefix("0x").removeSuffix("h").toLong(16)
+                Token.Kind.NUMBER_BIN -> text.removePrefix("0b").removeSuffix("b").toLong(2)
+                Token.Kind.NUMBER_OCT -> text.removePrefix("0o").removeSuffix("o").toLong(8)
+                Token.Kind.NUMBER_DEC -> text.toLong()
                 else -> error("Invalid token kind for number conversion: $kind at line $line")
             }
         }

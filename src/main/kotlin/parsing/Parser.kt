@@ -372,5 +372,5 @@ fun main() {
     dumpMemorySegments(memory, parser)
 
 //    // --- Full memory dump ---
-//    memory.printMemory()
+//    memory.dumpMemory()
 }

@@ -36,7 +36,7 @@ abstract class Lexer(source: String) {
         private val decPattern = Pattern.compile("^[-+]?[0-9]+(?:_[0-9]+)*d?", Pattern.CASE_INSENSITIVE)
         private val identifierPattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*")
         private val labelPattern = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*\\s*:")
-        private val registerPattern = Pattern.compile("^(?i)(e?[abcd]x|[abcd][lh]|[sd]i|[sb]p|[cdefgs]s)\\b", Pattern.CASE_INSENSITIVE)
+        private val registerPattern = Pattern.compile("^(?i)(e?[abcd]x|[abcd][lh]|e?[sd]i|e?[sb]p|[cdefgs]s)\\b", Pattern.CASE_INSENSITIVE)
         private val segmentPattern = Pattern.compile("^(?:section\\s+)?\\.(code|data|stack)", Pattern.CASE_INSENSITIVE)
         private val stringPattern = Pattern.compile("^\"([^\"\\\\]|\\\\.)*\"|^'([^'\\\\]|\\\\.)*'")
         private val dataDirectivePattern = Pattern.compile("^(byte|word|dword|db|dw|dd|dq|dt)", Pattern.CASE_INSENSITIVE)
@@ -174,4 +174,26 @@ abstract class Lexer(source: String) {
      * @return A list of [Token] objects.
      */
     fun getTokens(): List<Token> = tokens
+
+    fun toDataSegment(): Boolean {
+        index = -1
+        while (++index < tokens.size) {
+            val token = tokens[index]
+            if (token.kind == Token.Kind.SEGMENT && token.text.contains("data", ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun toCodeSegment(): Boolean {
+        index = -1
+        while (++index < tokens.size) {
+            val token = tokens[index]
+            if (token.kind == Token.Kind.SEGMENT && token.text.contains("code", ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
+    }
 }

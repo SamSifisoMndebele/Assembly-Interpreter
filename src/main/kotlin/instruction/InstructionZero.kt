@@ -1,6 +1,7 @@
 package instruction
 
 import model.Operation
+import model.Symbol
 
 /**
  * Represents an instruction with zero operands.
@@ -15,7 +16,7 @@ class InstructionZero(
     override val operation: Operation.OperationZero,
     override val line: Int
 ) : Instruction {
-    override fun encode(symbols: Map<String, Long>): UByteArray = when (operation) {
+    override fun encode(symbols: Map<String, Symbol>): UByteArray = when (operation) {
         Operation.OperationZero.EXIT -> TODO()
         Operation.OperationZero.NOP -> TODO()
         Operation.OperationZero.POPA -> TODO()

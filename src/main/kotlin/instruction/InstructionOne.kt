@@ -5,6 +5,7 @@ import model.CpuRegister
 import model.Operand
 import model.Operation
 import model.Operation.OperationOne
+import model.Symbol
 
 /**
  * Represents an instruction with one operand.
@@ -18,7 +19,7 @@ class InstructionOne(
     val operand: Operand,
     override val line: Int
 ) : Instruction {
-    override fun encode(symbols: Map<String, Long>): UByteArray = when (operation) {
+    override fun encode(symbols: Map<String, Symbol>): UByteArray = when (operation) {
         OperationOne.AND -> TODO()
         OperationOne.CALL -> TODO()
         OperationOne.DEC -> TODO()

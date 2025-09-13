@@ -1,11 +1,13 @@
 package instruction
 
 import instruction.Instruction.Companion.toUBytes
+import model.CpuRegister
 import model.Operand
 import model.Operand.Immediate
 import model.Operand.Memory
 import model.Operand.Register
 import model.Operation.OperationTwo
+import model.Symbol
 
 /**
  * Represents a two-operand instruction.
@@ -26,29 +28,73 @@ class InstructionTwo(
     val source: Operand,
     override val line: Int
 ) : Instruction {
-    override fun encode(symbols: Map<String, Long>): UByteArray = when (operation) {
+    override fun encode(symbols: Map<String, Symbol>): UByteArray = when (operation) {
         OperationTwo.MOV -> when (destination) {
             is Register -> when (source) {
                 is Immediate -> {
                     val opcode = (0xB8 + destination.cpuRegister.code.toInt()).toUByte()
                     ubyteArrayOf(opcode) + source.value.toUBytes()
                 }
-
                 is Register -> {
-                    val modRM =
-                        (0b11_000_000 or (source.cpuRegister.code.toInt() shl 3) or destination.cpuRegister.code.toInt()).toUByte()
+                    val modRM = (0b11_000_000 or (source.cpuRegister.code.toInt() shl 3) or destination.cpuRegister.code.toInt()).toUByte()
                     ubyteArrayOf(0x89.toUByte(), modRM)
                 }
-
                 is Memory -> {
-                    require(source.disp != null) { "Address not provided for MOV r32, [imm32]" }
+                    val destReg = destination.cpuRegister.code.toInt()
+                    val bytes = mutableListOf<UByte>()
+
+                    // Determine if SIB is needed
+                    val needsSIB = source.index != null || source.base?.cpuRegister == CpuRegister.ESP
+
+                    // Determine mod field (0,1,2) based on displacement
+                    val disp = source.disp ?: 0L
+                    val mod = when {
+                        disp == 0L && source.base?.cpuRegister != CpuRegister.EBP -> 0b00
+                        disp in Byte.MIN_VALUE..Byte.MAX_VALUE -> 0b01 // 8-bit displacement
+                        else -> 0b10 // 32-bit displacement
+                    }
+
+                    // Determine R/M field
+                    val rm = if (needsSIB) 0b100 else source.base?.cpuRegister?.code?.toInt() ?: 0b101
+
+                    val modRM = ((mod shl 6) or (destReg shl 3) or rm).toUByte()
+                    bytes += 0x8B.toUByte() // opcode
+                    bytes += modRM
+
+                    // Add SIB if needed
+                    if (needsSIB) {
+                        val scaleBits = when (source.scale) {
+                            1u -> 0b00
+                            2u -> 0b01
+                            4u -> 0b10
+                            8u -> 0b11
+                            else -> error("Invalid scale: ${source.scale}")
+                        }
+
+                        val indexBits = source.index?.cpuRegister?.code?.toInt() ?: 0b100 // 100 = no index
+                        val baseBits = source.base?.cpuRegister?.code?.toInt() ?: 0b101    // 101 = no base / disp32
+                        val sib = ((scaleBits shl 6) or (indexBits shl 3) or baseBits).toUByte()
+                        bytes += sib
+                    }
+
+                    // Add displacement bytes
+                    if (mod == 0b01) {
+                        bytes += disp.toByte().toUByte() // 8-bit displacement
+                    } else if ((mod == 0b00 && source.base == null) || mod == 0b10) {
+                        bytes += disp.toUInt().toUBytes() // 32-bit displacement
+                    }
+
+                    bytes.toUByteArray()
+                }
+
+                is Operand.Identifier -> {
+                    val address = symbols[source.name] ?: error("Symbol '${source.name}' not found at line $line")
                     // MOV r32, [imm32] - Opcode 0x8B /r, ModR/M for [disp32] is 00 reg 101
                     val regCode = destination.cpuRegister.code.toInt()
                     val modRM = (0b101 or (regCode shl 3)).toUByte()
-                    ubyteArrayOf(0x8B.toUByte(), modRM) + source.disp.toUByte()
+                    ubyteArrayOf(0x8B.toUByte(), modRM) + address.address.toUInt().toUBytes()
                 }
-
-                else -> error("Unsupported MOV destination operand: $source")
+                else -> error("Unsupported MOV source operand: $source")
             }
 
             is Memory -> when (source) {
@@ -73,7 +119,7 @@ class InstructionTwo(
                     ) + destination.disp.toUByte() + source.value.toUBytes()
                 }
 
-                else -> error("Unsupported MOV [mem32], src operand: $source")
+                else -> error("Unsupported MOV [mem32], source operand: $source")
             }
 
             else -> error("Unsupported MOV destination operand: $destination")

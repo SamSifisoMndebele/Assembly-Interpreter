@@ -8,6 +8,7 @@ import model.Operation
 import model.Operation.OperationOne
 import model.Operation.OperationTwo
 import model.Operation.OperationZero
+import model.Symbol
 
 /**
  * Represents a single x86 assembly instruction.
@@ -37,10 +38,15 @@ sealed interface Instruction {
     /**
      * Encodes the instruction into a sequence of bytes (machine code).
      *
+     * This function may use a symbol map to resolve labels or other symbols to their memory addresses
+     * during the encoding process, particularly for instructions involving memory operands with symbolic displacements.
+     *
+     * @param symbols A map where keys are symbol names (e.g., labels) and values are their corresponding memory addresses or offsets.
+     *                Defaults to an empty map if no symbols are needed.
      * @return A UByteArray representing the machine code for this instruction.
      * @throws error if the instruction or its operands are unsupported for encoding.
      */
-    fun encode(symbols: Map<String, Long> = emptyMap()): UByteArray
+    fun encode(symbols: Map<String, Symbol> = emptyMap()): UByteArray
 
     /**
      * Provides a string representation of the instruction, typically for debugging or display.
@@ -135,7 +141,7 @@ sealed interface Instruction {
                             result.add(
                                 InstructionTwo(
                                     OperationTwo.MOV,
-                                    Memory(null, disp),
+                                    Memory(null, disp = disp.toLong()),
                                     Operand.Register(srcReg),
                                     currentOffset
                                 )
@@ -166,7 +172,7 @@ sealed interface Instruction {
                                 InstructionTwo(
                                     OperationTwo.MOV,
                                     Operand.Register(dstReg),
-                                    Memory(null, disp),
+                                    Memory(null, disp = disp.toLong()),
                                     currentOffset
                                 )
                             )
@@ -195,7 +201,7 @@ sealed interface Instruction {
                                 result.add(
                                     InstructionTwo(
                                         OperationTwo.MOV,
-                                        Memory(null, disp),
+                                        Memory(null, disp = disp.toLong()),
                                         Immediate(imm),
                                         currentOffset
                                     )
@@ -398,7 +404,7 @@ sealed interface Instruction {
                                 InstructionTwo(
                                     OperationTwo.XCHG,
                                     Operand.Register(reg),
-                                    Memory(null, disp),
+                                    Memory(null, disp = disp.toLong()),
                                     currentOffset
                                 )
                             )
@@ -446,9 +452,9 @@ fun main() {
             Operand.Register(CpuRegister.EAX),
             2
         ),
-        InstructionTwo(OperationTwo.MOV, Operand.Register(CpuRegister.ECX), Memory(null, 0u), 3),
-        InstructionTwo(OperationTwo.MOV, Memory(null, 0u), Operand.Register(CpuRegister.EAX), 4),
-        InstructionTwo(OperationTwo.MOV, Memory(null, 8u), Immediate(0x54u), 5),
+        InstructionTwo(OperationTwo.MOV, Operand.Register(CpuRegister.ECX), Memory(null, disp = 0), 3),
+        InstructionTwo(OperationTwo.MOV, Memory(null, disp = 0), Operand.Register(CpuRegister.EAX), 4),
+        InstructionTwo(OperationTwo.MOV, Memory(null, disp = 8), Immediate(0x54u), 5),
     )
 
     val machineCodeParts = mutableListOf<String>()

@@ -7,14 +7,14 @@ class DataEntry(
     val bytes: UByteArray?,
     val line: Int
 ) {
-    val size: Int = when (type) {
+    val size: Int = when (type.uppercase()) {
         "BYTE", "DB" -> 1
         "WORD", "DW" -> 2
         "DWORD", "DD" -> 4
         "QWORD", "DQ" -> 8
         else -> error("Unknown data directive type: $type at line $line")
     }
-    val length: Int = size * (bytes?.size ?: 1)
+    val length: Int = bytes?.size ?: 1
 
     override fun toString(): String {
         if ((type == "BYTE" || type == "DB") && this@DataEntry.bytes?.firstOrNull()?.toInt()?.toChar()?.isLetter() == true) {

@@ -1,34 +1,32 @@
 package parsing
 
 import cpu.Memory
-import lexical.Lexer
-import lexical.Token
-import model.Segment
 import instruction.Instruction
-import instruction.InstructionZero
 import instruction.InstructionOne
 import instruction.InstructionTwo
+import instruction.InstructionZero
+import lexical.Lexer
+import lexical.Token
 import model.CpuRegister
-import model.Operation
+import model.DataEntry
 import model.Operand
 import model.Operand.*
-import model.DataEntry
+import model.Operation
+import model.Symbol // Added import
 import java.io.File
 import java.io.FileNotFoundException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.min
 import kotlin.system.exitProcess
-import kotlin.text.toLong
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class Parser(source: String, private val memory: Memory) : Lexer(source) {
     private val instructions = mutableListOf<Instruction>()
     private val dataEntries = mutableListOf<DataEntry>()
-    private var currentSegment = Segment.CODE // Tracks segment during parsing
 
-    private val symbols = mutableMapOf<String, Long>() // Stores symbol addresses
-    fun getSymbols(): Map<String, Long> = symbols
+    private val symbols = mutableMapOf<String, Symbol>() // Stores Symbol objects
+    fun getSymbols(): Map<String, Symbol> = symbols // Updated return type
 
     // Segment base addresses and alignment
     val codeSegmentBase: Long = 0L
@@ -40,14 +38,13 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         println("Tokens:")
         getTokens().forEach { println(it) } // Debug: Print all tokens first
 
-        // 1. Parse source to populate `instructions` list and `symbols` list
-        parseTokens()
+        // 1. Parse DATA segment
+        parseDataSegment()
 
         // 2. Calculate DATA segment base address
-        dataSegmentBase = instructions.size * 16L
+        dataSegmentBase = getTokens().count { it.kind == Token.Kind.OPERATION } * 16L
         if (dataSegmentBase >= memory.bytes) error("Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}).")
         if (stackSegmentBase < dataSegmentBase) error("Stack segment base ($stackSegmentBase) is before data segment base ($dataSegmentBase).")
-
 
         val dataSegStr = dataSegmentBase.toString(16)
         val codeSegStr = codeSegmentBase.toString(16)
@@ -64,7 +61,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         // 3. Write DATA segment to memory
         memoryCursor = dataSegmentBase
         dataEntries.forEach { dataEntry ->
-            symbols[dataEntry.name] = memoryCursor // Store the actual memory address
+            symbols[dataEntry.name] = Symbol(dataEntry.type, dataEntry.length, memoryCursor)
             if (dataEntry.bytes != null) {
                 for (byte in dataEntry.bytes) {
                     memory.writeByte(memoryCursor++, byte)
@@ -79,11 +76,24 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             val endAddr = min(memoryCursor, memory.bytes)
             memory.dumpMemory(start = startAddr, end = endAddr)
         }
+        println("\nSymbol table:")
+        println("+------------------+----------+-----+")
+        println("|$BOLD Name             $RESET|$BOLD Address  $RESET|$BOLD Len $RESET|")
+        println("+------------------+----------+-----+")
+        symbols.forEach { (name, symbol) ->
+            val hex = String.format("%08X", symbol.address)
+            val coloredHex = "$YELLOW${hex.substring(0, 7)}$BLUE${hex.last()}$RESET"
+            println(String.format("| %-16s | $coloredHex | %-3d |", name, symbol.length))
+        }
+        println("+------------------+----------+-----+")
 
-        // 4. Write CODE segment to memory
+        // 4. Parse CODE segment
+        parseCodeSegment()
+
+        // 5. Write CODE segment to memory
         memoryCursor = codeSegmentBase
         instructions.forEach { instruction ->
-            val encodedBytes = instruction.encode(symbols)
+            val encodedBytes = instruction.encode(symbols) // Pass Map<String, Symbol>
             encodedBytes.forEach { byte ->
                 if (memoryCursor < memory.bytes) { // Check memory bounds
                     memory.writeByte(memoryCursor, byte)
@@ -99,36 +109,27 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             val endAddr = min(memoryCursor, memory.bytes)
             memory.dumpMemory(start = startAddr, end = endAddr)
         }
-
-        println("\nSymbol table:")
-        println("+------------------+----------+")
-        println("|$BOLD Name             $RESET|$BOLD Address  $RESET|")
-        println("+------------------+----------+")
-        symbols.forEach { (name, address) ->
-            val hex = String.format("%08X", address) // always 8 hex digits
-            val coloredHex = "$YELLOW${hex.substring(0, 7)}$BLUE${hex.last()}$RESET"
-            println(String.format("| %-16s | $coloredHex |", name, address))
-        }
-        println("+------------------+----------+")
     }
 
-    private fun parseTokens() {
-        currentSegment = Segment.CODE
-
-        while (hasToken()) {
-            val token = nextToken()
-            when(currentSegment) {
-                Segment.DATA -> when (token.kind) {
-                    Token.Kind.SEGMENT -> {
-                        currentSegment = Segment.valueOf(token.text.removePrefix(".").uppercase())
-                    }
+    private fun parseDataSegment() {
+        if (toDataSegment()) {
+            while (hasToken()) {
+                val token = nextToken()
+                when (token.kind) {
+                    Token.Kind.SEGMENT -> break
                     Token.Kind.IDENTIFIER -> parseDataDefinition(token)
                     else -> error("Unexpected token kind: ${token.kind}")
                 }
-                Segment.CODE -> when (token.kind) {
-                    Token.Kind.SEGMENT -> {
-                        currentSegment = Segment.valueOf(token.text.removePrefix(".").uppercase())
-                    }
+            }
+        }
+    }
+
+    private fun parseCodeSegment() {
+        if (toCodeSegment()) {
+            while (hasToken()) {
+                val token = nextToken()
+                when (token.kind) {
+                    Token.Kind.SEGMENT -> break
                     Token.Kind.OPERATION -> parseInstruction(token)
                     Token.Kind.LABEL -> {
                         // Handle label definitions (e.g., "myLabel:")
@@ -137,9 +138,12 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     }
                     else -> error("Unexpected token kind: ${token.kind}")
                 }
-                Segment.STACK -> TODO("Stack segment not yet implemented")
             }
         }
+    }
+
+    private fun parseStackSegment() {
+        TODO("Stack segment parsing not yet implemented")
     }
 
     private fun parseDataDefinition(token: Token) {
@@ -259,47 +263,74 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             Token.Kind.LBRACKET -> {
                 // Memory operand parsing: [base + index*scale + displacement]
                 if (!hasToken()) error("Incomplete memory operand at line ${token.line}")
-                var next = nextToken()
+
                 var base: Register? = null
+                var index: Register? = null
+                var scale = 1u
                 var displacement: Long? = null
 
-                if (next.kind != Token.Kind.REGISTER && next.kind != Token.Kind.IDENTIFIER && !next.isNumber)
-                    error("Expected register, identifier, or immediate value for memory operand at line ${token.line}")
+                fun parseRegister(name: String) = Register(CpuRegister.valueOf(name.uppercase()))
 
-                if (next.kind == Token.Kind.REGISTER) {
-                    base = Register(CpuRegister.valueOf(next.text.uppercase()))
-                    if (!hasToken()) error("Expected ']' or '+' after register in memory operand at line ${token.line}")
-                    next = nextToken() // Consume for '+' or ']'
-                } else if (next.kind == Token.Kind.IDENTIFIER) {
-                    val addr = symbols[next.text] ?: error("Undefined symbol '${next.text}' used in memory operand at line ${token.line}")
-                    displacement = addr
-                    if (!hasToken()) error("Expected ']' or '+' after identifier in memory operand at line ${token.line}")
-                    next = nextToken() // Consume for '+' or ']'
-                }
+                var expectOperand = true
+                var next = nextToken()
 
-                if (next.kind == Token.Kind.PLUS) {
-                    if (!hasToken()) error("Expected displacement after '+' in memory operand at line ${token.line}")
-                    next = nextToken() // Should be a number
-                    if (next.isNumber) {
-                        displacement = next.toLong()
-                        if (!hasToken()) error("Expected ']' after displacement in memory operand at line ${token.line}")
-                        next = nextToken() // Consume for ']'
-                    } else if (next.kind == Token.Kind.IDENTIFIER) {
-                        // TODO: Handle [REG + IDENTIFIER] or [IDENTIFIER + IDENTIFIER] if needed (SIB-like)
-                        error("Symbolic displacement (e.g., [REG + mySymbol]) not yet fully supported. Use immediate value. Line ${next.line}")
-                    } else {
-                        error("Expected number for displacement in memory operand at line ${next.line}")
+                while (true) {
+                    if (expectOperand) {
+                        when {
+                            next.kind == Token.Kind.REGISTER -> {
+                                val peek = peekToken()
+                                if (peek.kind == Token.Kind.MULT) {
+                                    if (index != null) error("Multiple index registers in memory operand at line ${next.line}")
+                                    index = parseRegister(next.text)
+                                    require(index.cpuRegister != CpuRegister.ESP) {
+                                        "ESP cannot be used as an index register"
+                                    }
+                                    nextToken()
+                                    scale = nextToken().toUInt()
+                                    require(scale in listOf(1u, 2u, 4u, 8u))
+                                } else {
+                                    val reg = parseRegister(next.text)
+                                    when {
+                                        base == null -> base = reg
+                                        index == null -> {
+                                            index = reg
+                                            require(index.cpuRegister != CpuRegister.ESP) {
+                                                "ESP cannot be used as an index register"
+                                            }
+                                        }
+                                        else -> error("Too many registers in memory operand at line ${next.line}")
+                                    }
+                                }
+                            }
+                            next.kind == Token.Kind.IDENTIFIER -> {
+                                val symbol = symbols[next.text] ?: error("Undefined symbol '${next.text}' in memory operand at line ${next.line}")
+                                val value = when (symbol.size) {
+                                    1 -> memory.readByte(symbol.address).toLong()
+                                    2 -> memory.readWord(symbol.address).toLong()
+                                    4 -> memory.readDWord(symbol.address).toLong()
+                                    else -> error("Unknown data directive type: ${symbol.type} at line ${next.line}")
+                                }
+                                displacement = (displacement ?: 0) + value
+                            }
+                            next.isNumber -> displacement = (displacement ?: 0) + next.toLong()
+                            else -> error("Expected register, identifier or number at line $next")
+                        }
+                        expectOperand = false
+                        continue
                     }
-                } else if (next.isNumber && base == null) { // Case: [imm32] - base was not set
-                    displacement = next.toLong()
-                    if (!hasToken()) error("Expected ']' after immediate address in memory operand at line ${token.line}")
-                    next = nextToken() // Check for ']'
+                    if (!hasToken()) error("Unclosed memory operand at line ${token.line}")
+                    next = nextToken()
+                    when (next.kind) {
+                        Token.Kind.RBRACKET -> break
+                        Token.Kind.PLUS -> {
+                            next = nextToken()
+                            expectOperand = true
+                        }
+                        else -> error("Unexpected token ${next.kind} in memory operand at line ${next.line}")
+                    }
                 }
-                // If 'next' is already RBRACKET here, it means [REG] or [IDENTIFIER] cases were handled
 
-                if (next.kind != Token.Kind.RBRACKET) error("Expected ']' to close memory operand at line ${next.line}, found ${next.kind}")
-
-                return Memory(base, disp = displacement?.toLong())
+                return Memory(base, index, scale, displacement)
             }
             else -> error("Unknown or unexpected operand type: ${token.kind} ('${token.text}') at line ${token.line}")
         }

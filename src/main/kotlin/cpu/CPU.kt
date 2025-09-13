@@ -224,8 +224,8 @@ class CPU(
 
         is Operand.Memory -> {
             val baseValue = op.base?.let { get32(TODO()) } ?: 0u
-            val displacement = op.disp ?: 0u
-            val address = baseValue + displacement
+            val displacement = op.disp ?: 0L
+            val address = baseValue + displacement.toUInt()
 
             if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) { // Assuming DWORD access
                 error(
@@ -257,8 +257,8 @@ class CPU(
 
             is Operand.Memory -> {
                 val baseValue = op.base?.let { get32(TODO()) } ?: 0u
-                val displacement = op.disp ?: 0u
-                val address = baseValue + displacement
+                val displacement = op.disp ?: 0L
+                val address = baseValue + displacement.toUInt()
 
                 if (address >= mem.bytes.toUInt() || address + 3u >= mem.bytes.toUInt()) { // Assuming DWORD access
                     error(
@@ -717,7 +717,7 @@ fun main() {
         cpu.execute(
             InstructionTwo(
                 Operation.OperationTwo.MOV,
-                Memory(null, dataAddress),
+                Memory(null, disp = dataAddress.toLong()),
                 Register(EDX),
                 1
             )
@@ -727,7 +727,7 @@ fun main() {
             InstructionTwo(
                 Operation.OperationTwo.MOV,
                 Register(EDI),
-                Memory(null, dataAddress),
+                Memory(null, disp = dataAddress.toLong()),
                 2
             )
         )

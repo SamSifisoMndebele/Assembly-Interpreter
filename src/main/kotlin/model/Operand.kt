@@ -51,24 +51,37 @@ sealed interface Operand {
      * @property disp An optional displacement value used in address calculation (e.g., `[1234h]`, `[BX + 8]`).
      */
     data class Memory(
-        val base: Operand?, // Can be Register or Identifier
-        val disp: UInt? = null // Displacement
+        val base: Register? = null,
+        val index: Register? = null,
+        val scale: UInt = 1u,
+        val disp: Long? = null
     ) : Operand {
         init {
-            require(base is Register || base is Identifier || base == null) {
-                "Base must be a Register, Identifier, or null"
+            require(base != null || index != null || disp != null) {
+                "At least one of base, index, or disp must be provided"
+            }
+            require(scale in listOf(1u, 2u, 4u, 8u)) {
+                "Scale must be 1, 2, 4, or 8"
+            }
+            require(scale == 1u || index != null) {
+                "Scale requires an index register"
             }
         }
         override fun toString(): String {
-            val baseStr = base?.toString() ?: ""
-            val dispStr = disp?.let { d ->
+            val parts = mutableListOf<String>()
+            base?.let { parts += it.cpuRegister.name }
+            index?.let {
+                val idxPart = if (scale == 1u) it.cpuRegister.name else "${it.cpuRegister.name}*${scale}"
+                parts += if (parts.isEmpty()) idxPart else "+$idxPart"
+            }
+            disp?.let {
                 when {
-                    base != null && d > 0U -> "+${d.toString(radix = 16)}h"
-                    base != null && d < 0U -> "-${(-d.toInt()).toString(radix = 16)}h"
-                    else -> "${d.toString(radix = 16)}h"
+                    it > 0 -> parts += (if (parts.isEmpty()) "" else "+") + it.toString(radix = 16) + "h"
+                    it < 0 -> parts += "-" + (-it).toString(radix = 16) + "h"
                 }
-            } ?: ""
-            return if (baseStr.isEmpty() && dispStr.isEmpty()) "" else "[$baseStr$dispStr]"
+            }
+
+            return "[${parts.joinToString("")}]"
         }
     }
 }

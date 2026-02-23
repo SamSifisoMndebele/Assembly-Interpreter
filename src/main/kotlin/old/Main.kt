@@ -1,11 +1,13 @@
-import cpu.Memory
-import parsing.Parser
+package old
+
+import old.cpu.Memory
+import old.parsing.Parser
 import java.io.File
 import java.io.FileNotFoundException
 import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
-    val sourceFile = if (args.isEmpty()) "src/main/kotlin/main.asm" else args[0]
+    val sourceFile = if (args.isEmpty()) "src/old.main/kotlin/old.main.asm" else args[0]
 
     val src = try {
         File(sourceFile).readText()

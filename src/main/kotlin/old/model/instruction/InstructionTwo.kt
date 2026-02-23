@@ -1,16 +1,20 @@
-package instruction
+package old.model.instruction
 
-import instruction.Instruction.Companion.toUBytes
-import model.CpuRegister
-import model.Operand
-import model.Operand.Immediate
-import model.Operand.Memory
-import model.Operand.Register
-import model.Operation.OperationTwo
-import model.Symbol
+import old.model.Bits
+import old.model.CpuRegister
+import old.model.Symbol
+import old.model.operand.Identifier
+import old.model.operand.Immediate
+import old.model.operand.Label
+import old.model.operand.Memory
+import old.model.operand.Operand
+import old.model.operand.Register
+import old.model.operation.OperationTwo
+import old.model.operand.Identifier
+import old.utils.toUBytes
 
 /**
- * Represents a two-operand instruction.
+ * Represents a two-operand model.instruction.
  *
  * This class handles the encoding of instructions that operate on two operands,
  * such as MOV, ADD, SUB, etc. It determines the correct opcode and ModR/M byte
@@ -19,7 +23,7 @@ import model.Symbol
  * @property operation The specific operation to be performed (e.g., MOV, ADD).
  * @property destination The destination operand.
  * @property source The source operand.
- * @property line The line number in the source code where this instruction was defined.
+ * @property line The line number in the source code where this model.instruction was defined.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionTwo(
@@ -29,13 +33,16 @@ class InstructionTwo(
     override val line: Int
 ) : Instruction {
     override fun encode(symbols: Map<String, Symbol>): UByteArray = when (operation) {
-        OperationTwo.MOV -> when (destination) {
+        OperationTwo.MOV32 -> when (destination) {
             is Register -> when (source) {
                 is Immediate -> {
                     val opcode = (0xB8 + destination.cpuRegister.code.toInt()).toUByte()
-                    ubyteArrayOf(opcode) + source.value.toUBytes()
+                    ubyteArrayOf(opcode) + source.value.toUBytes(Bits.B32)
                 }
                 is Register -> {
+                    require(destination.cpuRegister.is32Bit && source.cpuRegister.is32Bit) {
+                        "Invalid register combination for MOV32: ${destination.cpuRegister} and ${source.cpuRegister} at line $line"
+                    }
                     val modRM = (0b11_000_000 or (source.cpuRegister.code.toInt() shl 3) or destination.cpuRegister.code.toInt()).toUByte()
                     ubyteArrayOf(0x89.toUByte(), modRM)
                 }
@@ -86,7 +93,6 @@ class InstructionTwo(
 
                     bytes.toUByteArray()
                 }
-
                 is Operand.Identifier -> {
                     val address = symbols[source.name] ?: error("Symbol '${source.name}' not found at line $line")
                     // MOV r32, [imm32] - Opcode 0x8B /r, ModR/M for [disp32] is 00 reg 101
@@ -125,15 +131,46 @@ class InstructionTwo(
             else -> error("Unsupported MOV destination operand: $destination")
         }
 
-        OperationTwo.ADD -> TODO()
-        OperationTwo.SUB -> TODO()
-        OperationTwo.CMP -> TODO()
-        OperationTwo.XCHG -> TODO()
-        OperationTwo.AND -> TODO()
-        OperationTwo.OR -> TODO()
-        OperationTwo.XOR -> TODO()
-        OperationTwo.MOVSX -> TODO()
-        OperationTwo.MOVZX -> TODO()
+        is OperationTwo.ADD -> {
+            when(destination) {
+                is Register -> when(source) {
+                    is Register -> {
+                        
+                        require(destination.cpuRegister.is32Bit && source.cpuRegister.is32Bit) {
+                            "Invalid register combination for ADD: ${destination.cpuRegister} and ${source.cpuRegister} at line $line"
+                        }
+                        val modRM = (0b11_000_000 or (source.cpuRegister.code.toInt() shl 3) or destination.cpuRegister.code.toInt()).toUByte()
+                        ubyteArrayOf(0x01.toUByte(), modRM)
+                    }
+                    is Immediate -> TODO()
+                    is Identifier -> TODO()
+                    is Label -> TODO()
+                    is Memory -> TODO()
+                }
+                is Memory -> TODO()
+                is Identifier -> TODO()
+                is Immediate -> TODO()
+                is Label -> TODO()
+            }
+        }
+        OperationTwo.ADD(Bits.B32) -> when(destination) {
+            is Register -> when(source) {
+                is Register -> TODO()
+                is Immediate -> TODO()
+                is Identifier -> TODO()
+                is Label -> TODO()
+                is Memory -> TODO()
+            }
+            is Memory -> TODO()
+            else -> error("Unsupported ADD destination operand: $destination")
+        }
+        OperationTwo.MOV16 -> TODO()
+        OperationTwo.MOV8 -> TODO()
+        is OperationTwo.MOVSX -> TODO()
+        is OperationTwo.MOVZX -> TODO()
+        OperationTwo.XCHG16 -> TODO()
+        OperationTwo.XCHG32 -> TODO()
+        OperationTwo.XCHG8 -> TODO()
     }
 
     override fun toString(): String = "$line: $operation $destination, $source"

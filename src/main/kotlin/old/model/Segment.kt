@@ -1,4 +1,4 @@
-package model
+package old.model
 
 /**
  * Represents the different segments of memory in the simulated computer.

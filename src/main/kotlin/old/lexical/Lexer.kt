@@ -1,6 +1,6 @@
-package lexical
+package old.lexical
 
-import model.Operation.Companion.allOperations
+import old.model.operation.Operation
 import java.util.regex.Pattern
 import kotlin.NoSuchElementException
 
@@ -41,7 +41,7 @@ abstract class Lexer(source: String) {
         private val stringPattern = Pattern.compile("^\"([^\"\\\\]|\\\\.)*\"|^'([^'\\\\]|\\\\.)*'")
         private val dataDirectivePattern = Pattern.compile("^(byte|word|dword|db|dw|dd|dq|dt)", Pattern.CASE_INSENSITIVE)
 
-        private val operations = allOperations.map { it.toString().lowercase() }
+        private val operations = Operation.Companion.allOperations.map { it.toString().lowercase() }
     }
 
     private val tokens = mutableListOf<Token>()

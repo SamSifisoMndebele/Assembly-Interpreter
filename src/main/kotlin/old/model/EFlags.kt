@@ -1,4 +1,4 @@
-package model
+package old.model
 
 /**
  * Represents the individual CPU status flags (EFlags).

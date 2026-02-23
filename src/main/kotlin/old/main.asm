@@ -9,12 +9,12 @@ count WORD 5h
 .code
     push eax
     push 25h
+    push x
     mov eax, [x + ebx + esi*2 + 16]
-    ; Compute 5 + 7
     MOV AX, 5
-    ;ADD AX, 7
+    mov y, 50
+    ;ADD AX, [y+2]
     ;pop eax
-    ;mov dx, [y+2]
 
     ; countdown from 3 to 0
     ;mov CX, 3

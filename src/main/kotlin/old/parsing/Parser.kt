@@ -1,24 +1,30 @@
-package parsing
+package old.parsing
 
-import cpu.Memory
-import instruction.Instruction
-import instruction.InstructionOne
-import instruction.InstructionTwo
-import instruction.InstructionZero
-import lexical.Lexer
-import lexical.Token
-import model.CpuRegister
-import model.DataEntry
-import model.Operand
-import model.Operand.*
-import model.Operation
-import model.Symbol // Added import
+import old.cpu.Memory
+import old.model.instruction.Instruction
+import old.model.instruction.InstructionOne
+import old.model.instruction.InstructionTwo
+import old.model.instruction.InstructionZero
+import old.lexical.Lexer
+import old.lexical.Token
+import old.model.Bits
+import old.model.CpuRegister
+import old.model.DataEntry
+import old.model.operand.Operand
+import old.model.Symbol // Added import
+import old.model.operand.Identifier
+import old.model.operand.Immediate
+import old.model.operand.Label
+import old.model.operand.Register
+import old.model.operation.OperationOne
+import old.model.operation.OperationTwo
+import old.model.operation.OperationZero
+import old.utils.toUBytes
 import java.io.File
 import java.io.FileNotFoundException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlin.math.min
 import kotlin.system.exitProcess
+import kotlin.text.toUInt
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class Parser(source: String, private val memory: Memory) : Lexer(source) {
@@ -180,12 +186,12 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                 }
                 Token.Kind.NUMBER_HEX, Token.Kind.NUMBER_BIN, Token.Kind.NUMBER_OCT, Token.Kind.NUMBER_DEC -> {
                     nextToken() // Consume number token
-                    val bytes = valueToken.toUInt().toBytes(type, valueToken.line)
+                    val bytes = valueToken.toUInt().toUBytes(type, valueToken.line)
                     values.addAll(bytes)
                 }
                 Token.Kind.UNKNOWN -> { // Handle '?'
                     nextToken() // Consume ? token
-                    val bytes = 0u.toBytes(type, valueToken.line) // Use 0 as the placeholder value
+                    val bytes = 0u.toUBytes(type, valueToken.line) // Use 0 as the placeholder value
                     values.addAll(bytes)
                 }
                 else -> {
@@ -212,36 +218,36 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         val operationName = token.text.uppercase()
         val line = token.line
 
-        val operationZero = Operation.OperationZero::class.nestedClasses.find {
+        val operationZero = OperationZero::class.nestedClasses.find {
             it.simpleName?.uppercase() == operationName
-        }?.objectInstance as Operation.OperationZero?
+        }?.objectInstance as OperationZero?
         if (operationZero != null) {
             instructions.add(InstructionZero(operationZero, line))
             return
         }
 
-        val operationOne = Operation.OperationOne::class.nestedClasses.find {
+        val operationOne = OperationOne::class.nestedClasses.find {
             it.simpleName?.uppercase() == operationName
-        }?.objectInstance as Operation.OperationOne?
+        }?.objectInstance as OperationOne?
         if (operationOne != null) {
             if (!hasToken()) error("Expected operand for $operationOne at line $line, but found no more tokens.")
-            val operand = nextOperand()
+            val operand = nextOperand(operationOne.bits)
             instructions.add(InstructionOne(operationOne, operand, line))
             return
         }
 
-        val operationTwo = Operation.OperationTwo::class.nestedClasses.find {
+        val operationTwo = OperationTwo::class.nestedClasses.find {
             it.simpleName?.uppercase() == operationName
-        }?.objectInstance as Operation.OperationTwo?
+        }?.objectInstance as OperationTwo?
         if (operationTwo != null) {
             if (!hasToken()) error("Missing or invalid destination operand for $operationTwo at line $line")
-            val destOperand = nextOperand()
+            val destOperand = nextOperand(operationTwo.bits)
             if (!hasToken() || nextToken().kind != Token.Kind.COMMA) {
                 if (hasPrevious()) previousToken()
                 error("Expected comma after destination operand for $operationTwo at line $line")
             }
             if (!hasToken()) error("Missing or invalid source operand for $operationTwo at line $line")
-            val srcOperand = nextOperand()
+            val srcOperand = nextOperand(operationTwo.bits)
             instructions.add(InstructionTwo(operationTwo, destOperand, srcOperand, line))
             return
         }
@@ -249,7 +255,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         error("Unknown operation '${token.text}' at line $line")
     }
 
-    private fun nextOperand(): Operand {
+    private fun nextOperand(bits: Bits): Operand {
         val token = nextToken()
         return when (token.kind) {
             Token.Kind.REGISTER -> Register(CpuRegister.valueOf(token.text.uppercase()))
@@ -330,7 +336,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     }
                 }
 
-                return Memory(base, index, scale, displacement)
+                return old.model.operand.Memory(base, index, scale, displacement)
             }
             else -> error("Unknown or unexpected operand type: ${token.kind} ('${token.text}') at line ${token.line}")
         }
@@ -362,24 +368,6 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                 Token.Kind.NUMBER_DEC -> text.toLong()
                 else -> error("Invalid token kind for number conversion: $kind at line $line")
             }
-        }
-
-        private fun UInt.toBytes(type: String, line: Int): UByteArray {
-            val size = when (type) {
-                "BYTE", "DB" -> 1
-                "WORD", "DW" -> 2
-                "DWORD", "DD" -> 4
-                "QWORD", "DQ" -> 8
-                else -> error("Unknown data directive type: $type at line $line")
-            }
-            val buffer = ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN)
-            when (size) {
-                1 -> buffer.put(toByte())
-                2 -> buffer.putShort(toShort())
-                4 -> buffer.putInt(toInt())
-                8 -> buffer.putLong(toLong())
-            }
-            return buffer.array().toUByteArray()
         }
 
         data class DataValue(
@@ -450,9 +438,9 @@ fun dumpSymbolTable(symbols: Map<String, Long>) {
 
 fun main() {
     val src = try {
-        File("src/main/kotlin/main.asm").readText()
+        File("src/old.main/kotlin/old.main.asm").readText()
     } catch (e: FileNotFoundException) {
-        println("Error: ${e.message}, Source file not found: src/main/kotlin/main.asm")
+        println("Error: ${e.message}, Source file not found: src/old.main/kotlin/old.main.asm")
         println("Please provide a valid path as a command-line argument or make sure the default file exists.")
         exitProcess(1)
     }
@@ -462,10 +450,8 @@ fun main() {
 
 //    // --- Symbol table ---
 //    dumpSymbolTable(parser.getSymbols())
-
 //    // --- Memory dump ---
 //    dumpMemorySegments(memory, parser)
-
 //    // --- Full memory dump ---
 //    memory.dumpMemory()
 }

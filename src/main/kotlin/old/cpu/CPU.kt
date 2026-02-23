@@ -1,42 +1,15 @@
-package cpu
+package old.cpu
 
-import instruction.Instruction
-import model.DataEntry
-import instruction.InstructionOne
-import instruction.InstructionTwo
-import instruction.InstructionZero
-import model.CpuRegister
-import model.CpuRegister.AH
-import model.CpuRegister.AL
-import model.CpuRegister.AX
-import model.CpuRegister.BH
-import model.CpuRegister.BL
-import model.CpuRegister.BP
-import model.CpuRegister.BX
-import model.CpuRegister.CH
-import model.CpuRegister.CL
-import model.CpuRegister.CS
-import model.CpuRegister.CX
-import model.CpuRegister.DH
-import model.CpuRegister.DI
-import model.CpuRegister.DL
-import model.CpuRegister.DS
-import model.CpuRegister.DX
-import model.CpuRegister.EAX
-import model.CpuRegister.EBP
-import model.CpuRegister.EBX
-import model.CpuRegister.ECX
-import model.CpuRegister.EDI
-import model.CpuRegister.EDX
-import model.CpuRegister.ESI
-import model.CpuRegister.ESP
-import model.CpuRegister.SI
-import model.CpuRegister.SP
-import model.CpuRegister.SS
-import model.EFlags
-import model.Operand
-import model.Operand.*
-import model.Operation
+import old.model.instruction.Instruction
+import old.model.DataEntry
+import old.model.instruction.InstructionOne
+import old.model.instruction.InstructionTwo
+import old.model.instruction.InstructionZero
+import old.model.CpuRegister
+import old.model.EFlags
+import old.model.operand.Operand
+import old.model.operand.Operand.*
+import old.model.operation.Operation
 import kotlin.Boolean
 import kotlin.ExperimentalUnsignedTypes
 import kotlin.Int
@@ -64,7 +37,7 @@ import kotlin.text.uppercase
 import kotlin.toUInt
 
 /**
- * Simulates a CPU with a set of registers, memory, and an instruction pointer.
+ * Simulates a CPU with a set of registers, memory, and an model.instruction pointer.
  * It can execute a list of [Instruction] objects.
  *
  * @property mem The [Memory] instance that this CPU will operate on.
@@ -100,17 +73,17 @@ class CPU(
 
     private val CpuRegister.cpuReg: Int
         get() = when (this) {
-            EAX, AX, AL, AH -> Reg.EAX.ordinal
-            EBX, BX, BL, BH -> Reg.EBX.ordinal
-            ECX, CX, CL, CH -> Reg.ECX.ordinal
-            EDX, DX, DL, DH -> Reg.EDX.ordinal
-            ESI, SI -> Reg.ESI.ordinal
-            EDI, DI -> Reg.EDI.ordinal
-            EBP, BP -> Reg.EBP.ordinal
-            ESP, SP -> Reg.ESP.ordinal
-            CS -> Reg.CS.ordinal
-            SS -> Reg.SS.ordinal
-            DS -> Reg.DS.ordinal
+            CpuRegister.EAX, CpuRegister.AX, CpuRegister.AL, CpuRegister.AH -> Reg.EAX.ordinal
+            CpuRegister.EBX, CpuRegister.BX, CpuRegister.BL, CpuRegister.BH -> Reg.EBX.ordinal
+            CpuRegister.ECX, CpuRegister.CX, CpuRegister.CL, CpuRegister.CH -> Reg.ECX.ordinal
+            CpuRegister.EDX, CpuRegister.DX, CpuRegister.DL, CpuRegister.DH -> Reg.EDX.ordinal
+            CpuRegister.ESI, CpuRegister.SI -> Reg.ESI.ordinal
+            CpuRegister.EDI, CpuRegister.DI -> Reg.EDI.ordinal
+            CpuRegister.EBP, CpuRegister.BP -> Reg.EBP.ordinal
+            CpuRegister.ESP, CpuRegister.SP -> Reg.ESP.ordinal
+            CpuRegister.CS -> Reg.CS.ordinal
+            CpuRegister.SS -> Reg.SS.ordinal
+            CpuRegister.DS -> Reg.DS.ordinal
         }
 
     // === Register access ===
@@ -128,8 +101,8 @@ class CPU(
     private fun get8(cpuRegister: CpuRegister): UByte {
         val raw = regs[cpuRegister.cpuReg]
         return when (cpuRegister) {
-            AL, BL, CL, DL -> (raw and 0xFFu).toUByte()
-            AH, BH, CH, DH -> ((raw shr 8) and 0xFFu).toUByte()
+            CpuRegister.AL, CpuRegister.BL, CpuRegister.CL, CpuRegister.DL -> (raw and 0xFFu).toUByte()
+            CpuRegister.AH, CpuRegister.BH, CpuRegister.CH, CpuRegister.DH -> ((raw shr 8) and 0xFFu).toUByte()
             else -> error("Unsupported 8-bit register: $cpuRegister")
         }
     }
@@ -138,8 +111,8 @@ class CPU(
         val i = cpuRegister.cpuReg
         val raw = regs[i]
         regs[i] = when (cpuRegister) {
-            AL, BL, CL, DL -> (raw and 0xFFFF_FF00u) or value.toUInt()
-            AH, BH, CH, DH -> (raw and 0xFFFF_00FFu) or (value.toUInt() shl 8)
+            CpuRegister.AL, CpuRegister.BL, CpuRegister.CL, CpuRegister.DL -> (raw and 0xFFFF_FF00u) or value.toUInt()
+            CpuRegister.AH, CpuRegister.BH, CpuRegister.CH, CpuRegister.DH -> (raw and 0xFFFF_00FFu) or (value.toUInt() shl 8)
             else -> error("Unsupported 8-bit register: $cpuRegister")
         }
     }
@@ -217,8 +190,8 @@ class CPU(
     private fun read(op: Operand): UInt = when (op) {
         is Immediate -> op.value
         is Register -> when (op.cpuRegister) {
-            AL, AH, BL, BH, CL, CH, DL, DH -> get8(op.cpuRegister).toUInt()
-            AX, BX, CX, DX, SI, DI, BP, SP -> get16(op.cpuRegister).toUInt()
+            CpuRegister.AL, CpuRegister.AH, CpuRegister.BL, CpuRegister.BH, CpuRegister.CL, CpuRegister.CH, CpuRegister.DL, CpuRegister.DH -> get8(op.cpuRegister).toUInt()
+            CpuRegister.AX, CpuRegister.BX, CpuRegister.CX, CpuRegister.DX, CpuRegister.SI, CpuRegister.DI, CpuRegister.BP, CpuRegister.SP -> get16(op.cpuRegister).toUInt()
             else -> get32(op.cpuRegister)
         }
 
@@ -246,8 +219,8 @@ class CPU(
     private fun write(op: Operand, value: UInt) {
         when (op) {
             is Register -> when (op.cpuRegister) {
-                AL, AH, BL, BH, CL, CH, DL, DH -> set8(op.cpuRegister, (value and 0xFFu).toUByte())
-                AX, BX, CX, DX, SI, DI, BP, SP -> set16(
+                CpuRegister.AL, CpuRegister.AH, CpuRegister.BL, CpuRegister.BH, CpuRegister.CL, CpuRegister.CH, CpuRegister.DL, CpuRegister.DH -> set8(op.cpuRegister, (value and 0xFFu).toUByte())
+                CpuRegister.AX, CpuRegister.BX, CpuRegister.CX, CpuRegister.DX, CpuRegister.SI, CpuRegister.DI, CpuRegister.BP, CpuRegister.SP -> set16(
                     op.cpuRegister,
                     (value and 0xFFFFu).toUShort()
                 )
@@ -292,7 +265,7 @@ class CPU(
     }
 
     /**
-     * Executes a single instruction.
+     * Executes a single model.instruction.
      * @return true if IP was modified by a jump/call/ret, false otherwise.
      */
     fun execute(instruction: Instruction): Boolean {
@@ -303,27 +276,27 @@ class CPU(
                     }
 
                     Operation.OperationZero.POPA -> {
-                        set32(EDI, pop())
-                        set32(ESI, pop())
-                        set32(EBP, pop())
+                        set32(CpuRegister.EDI, pop())
+                        set32(CpuRegister.ESI, pop())
+                        set32(CpuRegister.EBP, pop())
                         pop() // Skip ESP - this pops the pushed ESP value and discards it
-                        set32(EBX, pop())
-                        set32(EDX, pop())
-                        set32(ECX, pop())
-                        set32(EAX, pop())
+                        set32(CpuRegister.EBX, pop())
+                        set32(CpuRegister.EDX, pop())
+                        set32(CpuRegister.ECX, pop())
+                        set32(CpuRegister.EAX, pop())
                     }
 
                     Operation.OperationZero.PUSHA -> {
                         val tempEsp =
-                            get32(ESP) // ESP value *before* any registers are pushed by PUSHA
-                        push(get32(EAX))
-                        push(get32(ECX))
-                        push(get32(EDX))
-                        push(get32(EBX))
+                            get32(CpuRegister.ESP) // ESP value *before* any registers are pushed by PUSHA
+                        push(get32(CpuRegister.EAX))
+                        push(get32(CpuRegister.ECX))
+                        push(get32(CpuRegister.EDX))
+                        push(get32(CpuRegister.EBX))
                         push(tempEsp) // Push original ESP
-                        push(get32(EBP))
-                        push(get32(ESI))
-                        push(get32(EDI))
+                        push(get32(CpuRegister.EBP))
+                        push(get32(CpuRegister.ESI))
+                        push(get32(CpuRegister.EDI))
                     }
 
                     Operation.OperationZero.RET -> {
@@ -393,8 +366,8 @@ class CPU(
                     }
 
                     Operation.OperationOne.LOOP -> {
-                        val ecx = get32(ECX) - 1u
-                        set32(ECX, ecx)
+                        val ecx = get32(CpuRegister.ECX) - 1u
+                        set32(CpuRegister.ECX, ecx)
                         if (ecx != 0u) {
                             EIP = read(operand)
                             return true
@@ -473,7 +446,7 @@ class CPU(
                         addFlags(a, b, res)
                     }
 
-                    Operation.OperationTwo.MOV -> {
+                    Operation.OperationTwo.MOV32 -> {
                         write(dst, read(src))
                     }
 
@@ -566,8 +539,8 @@ class CPU(
      * @return The value of the register as a [UInt].
      */
     fun get(r: CpuRegister): UInt = when (r) {
-        AL, AH, BL, BH, CL, CH, DL, DH -> get8(r).toUInt()
-        AX, BX, CX, DX, SI, DI, BP, SP -> get16(r).toUInt()
+        CpuRegister.AL, CpuRegister.AH, CpuRegister.BL, CpuRegister.BH, CpuRegister.CL, CpuRegister.CH, CpuRegister.DL, CpuRegister.DH -> get8(r).toUInt()
+        CpuRegister.AX, CpuRegister.BX, CpuRegister.CX, CpuRegister.DX, CpuRegister.SI, CpuRegister.DI, CpuRegister.BP, CpuRegister.SP -> get16(r).toUInt()
         else -> get32(r)
     }
 
@@ -595,58 +568,58 @@ class CPU(
         println("${BLUE}Registers Dump:${RESET}")
         println(
             " ${BLUE}EAX=${RESET}${GREEN}%08X${RESET} | ${BLUE}AX=${RESET}${GREEN}%04X${RESET} | ${BLUE}AH=${RESET}${GREEN}%02X${RESET}, ${BLUE}AL=${RESET}${GREEN}%02X${RESET}".format(
-                get32(EAX).toInt(),
-                get16(AX).toInt(),
-                get8(AH).toInt(),
-                get8(AL).toInt()
+                get32(CpuRegister.EAX).toInt(),
+                get16(CpuRegister.AX).toInt(),
+                get8(CpuRegister.AH).toInt(),
+                get8(CpuRegister.AL).toInt()
             )
         )
         println(
             " ${BLUE}EBX=${RESET}${GREEN}%08X${RESET} | ${BLUE}BX=${RESET}${GREEN}%04X${RESET} | ${BLUE}BH=${RESET}${GREEN}%02X${RESET}, ${BLUE}BL=${RESET}${GREEN}%02X${RESET}".format(
-                get32(EBX).toInt(),
-                get16(BX).toInt(),
-                get8(BH).toInt(),
-                get8(BL).toInt()
+                get32(CpuRegister.EBX).toInt(),
+                get16(CpuRegister.BX).toInt(),
+                get8(CpuRegister.BH).toInt(),
+                get8(CpuRegister.BL).toInt()
             )
         )
         println(
             " ${BLUE}ECX=${RESET}${GREEN}%08X${RESET} | ${BLUE}CX=${RESET}${GREEN}%04X${RESET} | ${BLUE}CH=${RESET}${GREEN}%02X${RESET}, ${BLUE}CL=${RESET}${GREEN}%02X${RESET}".format(
-                get32(ECX).toInt(),
-                get16(CX).toInt(),
-                get8(CH).toInt(),
-                get8(CL).toInt()
+                get32(CpuRegister.ECX).toInt(),
+                get16(CpuRegister.CX).toInt(),
+                get8(CpuRegister.CH).toInt(),
+                get8(CpuRegister.CL).toInt()
             )
         )
         println(
             " ${BLUE}EDX=${RESET}${GREEN}%08X${RESET} | ${BLUE}DX=${RESET}${GREEN}%04X${RESET} | ${BLUE}DH=${RESET}${GREEN}%02X${RESET}, ${BLUE}DL=${RESET}${GREEN}%02X${RESET}".format(
-                get32(EDX).toInt(),
-                get16(DX).toInt(),
-                get8(DH).toInt(),
-                get8(DL).toInt()
+                get32(CpuRegister.EDX).toInt(),
+                get16(CpuRegister.DX).toInt(),
+                get8(CpuRegister.DH).toInt(),
+                get8(CpuRegister.DL).toInt()
             )
         )
         println(
             " ${BLUE}ESI=${RESET}${GREEN}%08X${RESET} | ${BLUE}SI=${RESET}${GREEN}%04X${RESET}".format(
-                get32(ESI).toInt(),
-                get16(SI).toInt()
+                get32(CpuRegister.ESI).toInt(),
+                get16(CpuRegister.SI).toInt()
             )
         )
         println(
             " ${BLUE}EDI=${RESET}${GREEN}%08X${RESET} | ${BLUE}DI=${RESET}${GREEN}%04X${RESET}".format(
-                get32(EDI).toInt(),
-                get16(DI).toInt()
+                get32(CpuRegister.EDI).toInt(),
+                get16(CpuRegister.DI).toInt()
             )
         )
         println(
             " ${BLUE}EBP=${RESET}${GREEN}%08X${RESET} | ${BLUE}BP=${RESET}${GREEN}%04X${RESET}".format(
-                get32(EBP).toInt(),
-                get16(BP).toInt()
+                get32(CpuRegister.EBP).toInt(),
+                get16(CpuRegister.BP).toInt()
             )
         )
         println(
             " ${BLUE}ESP=${RESET}${GREEN}%08X${RESET} | ${BLUE}SP=${RESET}${GREEN}%04X${RESET}".format(
-                get32(ESP).toInt(),
-                get16(SP).toInt()
+                get32(CpuRegister.ESP).toInt(),
+                get16(CpuRegister.SP).toInt()
             )
         )
         println(" ${BLUE}EIP=${RESET}${GREEN}%08X${RESET}".format(EIP.toInt()))
@@ -676,26 +649,26 @@ fun main() {
 
     val program = listOf(
         InstructionTwo(
-            Operation.OperationTwo.MOV,
-            Register(EAX),
+            Operation.OperationTwo.MOV32,
+            Register(CpuRegister.EAX),
             Immediate(0xAu),
             1
         ), // MOV EAX, 0xA
         InstructionTwo(
-            Operation.OperationTwo.MOV,
-            Register(EBX),
+            Operation.OperationTwo.MOV32,
+            Register(CpuRegister.EBX),
             Immediate(0xBu),
             2
         ), // MOV EBX, 0xB
-        InstructionOne(Operation.OperationOne.PUSH, Register(EBX), 3),              // PUSH EBX
+        InstructionOne(Operation.OperationOne.PUSH, Register(CpuRegister.EBX), 3),              // PUSH EBX
         InstructionOne(
             Operation.OperationOne.POP,
-            Register(ECX),
+            Register(CpuRegister.ECX),
             4
         ),               // POP ECX (should be 0xB)
         InstructionOne(
             Operation.OperationOne.POP,
-            Register(EDX),
+            Register(CpuRegister.EDX),
             5
         )                // POP EDX (should be 0xA)
     )
@@ -716,17 +689,17 @@ fun main() {
         // MOV [0x100], EAX (where EAX is 0xA after first POP)
         cpu.execute(
             InstructionTwo(
-                Operation.OperationTwo.MOV,
+                Operation.OperationTwo.MOV32,
                 Memory(null, disp = dataAddress.toLong()),
-                Register(EDX),
+                Register(CpuRegister.EDX),
                 1
             )
         )
         // MOV EDI, [0x100]
         cpu.execute(
             InstructionTwo(
-                Operation.OperationTwo.MOV,
-                Register(EDI),
+                Operation.OperationTwo.MOV32,
+                Register(CpuRegister.EDI),
                 Memory(null, disp = dataAddress.toLong()),
                 2
             )

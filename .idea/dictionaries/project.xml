@@ -24,7 +24,9 @@
       <w>movsb</w>
       <w>movsd</w>
       <w>movsw</w>
+      <w>movsx</w>
       <w>movw</w>
+      <w>movzx</w>
       <w>popa</w>
       <w>popad</w>
       <w>pusha</w>

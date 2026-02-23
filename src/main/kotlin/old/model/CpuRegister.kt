@@ -1,4 +1,4 @@
-package model
+package old.model
 
 /**
  * Represents the registers available in an x86-like architecture.
@@ -88,4 +88,23 @@ enum class CpuRegister(val code: UByte) {
 
     /** Data Segment register (16-bit) */
     DS(0x03u),
+
+    /** Extra Segment register (16-bit) */
+    ES(0x00u);
+
+    // Note: FS and GS segment registers were introduced with the 80386 processor.
+    // For simplicity in an 8086/8088 emulator, they might be omitted or handled differently.
+    // FS(0x04u), // If supporting 386+
+    // GS(0x05u), // If supporting 386+
+
+    val is32Bit: Boolean
+        get() = this in arrayOf(EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI)
+
+    val is16Bit: Boolean
+        get() = this in arrayOf(AX, CX, DX, BX, SP, BP, SI, DI, CS, SS, DS, ES)
+
+    val is8Bit: Boolean
+        get() = this in arrayOf(AL, CL, DL, BL, AH, CH, DH, BH)
+
+
 }

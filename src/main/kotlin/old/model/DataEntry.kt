@@ -1,4 +1,4 @@
-package model
+package old.model
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class DataEntry(
@@ -11,7 +11,7 @@ class DataEntry(
         "BYTE", "DB" -> 1
         "WORD", "DW" -> 2
         "DWORD", "DD" -> 4
-        "QWORD", "DQ" -> 8
+        "QWORD", "DQ" -> error("QWORD is not supported")
         else -> error("Unknown data directive type: $type at line $line")
     }
     val length: Int = bytes?.size ?: 1

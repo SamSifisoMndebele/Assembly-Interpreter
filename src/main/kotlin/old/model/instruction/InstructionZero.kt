@@ -1,15 +1,15 @@
-package instruction
+package old.model.instruction
 
-import model.Operation
-import model.Symbol
+import old.model.operation.Operation
+import old.model.Symbol
 
 /**
- * Represents an instruction with zero operands.
+ * Represents an model.instruction with zero operands.
  * These instructions typically perform actions that don't require any data,
  * such as halting the processor or returning from a subroutine.
  *
  * @property operation The specific zero-operand operation to be performed.
- * @property line The line number in the source code where this instruction was defined.
+ * @property line The line number in the source code where this model.instruction was defined.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionZero(

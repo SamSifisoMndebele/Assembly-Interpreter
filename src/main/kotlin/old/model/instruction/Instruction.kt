@@ -1,21 +1,20 @@
-package instruction
+package old.model.instruction
 
-import model.CpuRegister
-import model.Operand
-import model.Operand.Immediate
-import model.Operand.Memory
-import model.Operation
-import model.Operation.OperationOne
-import model.Operation.OperationTwo
-import model.Operation.OperationZero
-import model.Symbol
+import old.model.Bits
+import old.model.CpuRegister
+import old.model.Symbol
+import old.model.operand.Immediate
+import old.model.operand.Memory
+import old.model.operand.Register
+import old.model.operation.Operation
+import old.model.operation.OperationTwo
 
 /**
- * Represents a single x86 assembly instruction.
+ * Represents a single x86 assembly model.instruction.
  *
- * This interface is the base for all specific instruction types (e.g., those with zero, one, or two operands).
+ * This interface is the base for all specific model.instruction types (e.g., those with zero, one, or two operands).
  * It defines common properties like the operation type and the original line number,
- * and mandates methods for encoding the instruction into machine code and generating a string representation.
+ * and mandates methods for encoding the model.instruction into machine code and generating a string representation.
  *
  * Implementations of this interface will handle the specifics of different x86 instructions,
  * including their opcodes, operands, and addressing modes.
@@ -31,25 +30,25 @@ sealed interface Instruction {
     val operation: Operation
 
     /**
-     * The line number of the instruction in the source code.
+     * The line number of the model.instruction in the source code.
      */
     val line: Int
 
     /**
-     * Encodes the instruction into a sequence of bytes (machine code).
+     * Encodes the model.instruction into a sequence of bytes (machine code).
      *
      * This function may use a symbol map to resolve labels or other symbols to their memory addresses
      * during the encoding process, particularly for instructions involving memory operands with symbolic displacements.
      *
      * @param symbols A map where keys are symbol names (e.g., labels) and values are their corresponding memory addresses or offsets.
      *                Defaults to an empty map if no symbols are needed.
-     * @return A UByteArray representing the machine code for this instruction.
-     * @throws error if the instruction or its operands are unsupported for encoding.
+     * @return A UByteArray representing the machine code for this model.instruction.
+     * @throws error if the model.instruction or its operands are unsupported for encoding.
      */
     fun encode(symbols: Map<String, Symbol> = emptyMap()): UByteArray
 
     /**
-     * Provides a string representation of the instruction, typically for debugging or display.
+     * Provides a string representation of the model.instruction, typically for debugging or display.
      *
      * @return A string in the format "line: operation operands".
      */
@@ -65,7 +64,7 @@ sealed interface Instruction {
          * @throws error if an unknown opcode is encountered or an unsupported addressing mode is used.
          */
         fun UByteArray.decode(): List<Instruction> {
-            val result = mutableListOf<Instruction>()
+            /*val result = mutableListOf<Instruction>()
             var i = 0
             val r32OpcodeMap = CpuRegister.entries
                 .filter { it.name.startsWith("E") }
@@ -89,10 +88,10 @@ sealed interface Instruction {
                         val regOpcode = currentOpcode - 0xB8
                         val imm = copyOfRange(i + 1, i + 5).toUInt()
                         val dstReg = r32OpcodeMap[regOpcode]
-                            ?: error("Unknown 32-bit destination register opcode: $regOpcode for MOV r32, imm32 instruction at offset $currentOffset")
+                            ?: error("Unknown 32-bit destination register opcode: $regOpcode for MOV r32, imm32 model.instruction at offset $currentOffset")
                         result.add(
                             InstructionTwo(
-                                OperationTwo.MOV,
+                                OperationTwo.MOV32,
                                 Operand.Register(dstReg),
                                 Immediate(imm),
                                 currentOffset
@@ -127,7 +126,7 @@ sealed interface Instruction {
                                 )
                             result.add(
                                 InstructionTwo(
-                                    OperationTwo.MOV,
+                                    OperationTwo.MOV32,
                                     Operand.Register(dstReg),
                                     Operand.Register(srcReg),
                                     currentOffset
@@ -140,7 +139,7 @@ sealed interface Instruction {
                             val disp = copyOfRange(i + 2, i + 6).toUInt()
                             result.add(
                                 InstructionTwo(
-                                    OperationTwo.MOV,
+                                    OperationTwo.MOV32,
                                     Memory(null, disp = disp.toLong()),
                                     Operand.Register(srcReg),
                                     currentOffset
@@ -170,7 +169,7 @@ sealed interface Instruction {
                             val disp = copyOfRange(i + 2, i + 6).toUInt()
                             result.add(
                                 InstructionTwo(
-                                    OperationTwo.MOV,
+                                    OperationTwo.MOV32,
                                     Operand.Register(dstReg),
                                     Memory(null, disp = disp.toLong()),
                                     currentOffset
@@ -200,7 +199,7 @@ sealed interface Instruction {
                                 val imm = copyOfRange(i + 6, i + 10).toUInt()
                                 result.add(
                                     InstructionTwo(
-                                        OperationTwo.MOV,
+                                        OperationTwo.MOV32,
                                         Memory(null, disp = disp.toLong()),
                                         Immediate(imm),
                                         currentOffset
@@ -367,7 +366,7 @@ sealed interface Instruction {
 
                         if (mod == 0b11) { // XCHG r32, r32
                             // In this form, reg field is one register, r/m field is the other.
-                            // The encoded instruction 0x87 C_D means XCHG regC, regD (where D is from r/m field)
+                            // The encoded model.instruction 0x87 C_D means XCHG regC, regD (where D is from r/m field)
                             val reg1 = r32OpcodeMap[regOpcode]
                                 ?: error("Unknown 32-bit register (reg field): $regOpcode for XCHG r32,r32 at offset $currentOffset")
                             val reg2 = r32OpcodeMap[rmOpcode]
@@ -387,17 +386,17 @@ sealed interface Instruction {
                                 ?: error("Unknown 32-bit register: $regOpcode for XCHG with memory at offset $currentOffset")
                             val disp = copyOfRange(i + 2, i + 6).toUInt()
                             // The source/dest distinction for XCHG r,m vs m,r is subtle in encoding but clear in our model
-                            // We need to infer from the original instruction structure if possible, but here we only have this.
+                            // We need to infer from the original model.instruction structure if possible, but here we only have this.
                             // The byte sequence is the same for XCHG r32, [disp32] and XCHG [disp32], r32
                             // Let's assume the register from ModR/M's REG field is DST if the other is MEM for now.
                             // This might need adjustment if parsing from a specific textual form to this.
-                            // For decoding, we can choose one form; the main.kt example has XCHG reg, mem and XCHG mem, reg
+                            // For decoding, we can choose one form; the old.main.kt example has XCHG reg, mem and XCHG mem, reg
                             // XCHG ECX, Memory(Reg.EDX, 10u) -> 87 0A xx xx xx xx (EDX is not part of ModRM reg field)
                             // XCHG Memory(Reg.EDX, 10u), ECX -> 87 0A xx xx xx xx (ECX is ModRM reg field)
                             // The current encode logic for XCHG r32, m32 uses dst.reg for regCode.
                             // The current encode logic for XCHG m32, r32 uses src.reg for regCode.
                             // So, the reg field in ModR/M byte points to the register operand.
-                            // The instruction can be interpreted as XCHG Register(reg), Memory(...) OR XCHG Memory(...), Register(reg)
+                            // The model.instruction can be interpreted as XCHG Register(reg), Memory(...) OR XCHG Memory(...), Register(reg)
                             // The order is ambiguous from this alone without knowing which operand was "first" in the original.
                             // We will decode as XCHG Register(reg), Memory(...) as a convention.
                             result.add(
@@ -423,16 +422,9 @@ sealed interface Instruction {
                     else -> error("Unknown opcode: 0x${this[i].toString(16)} at offset $currentOffset")
                 }
             }
-            return result
+            return result*/
+            TODO("Not yet implemented")
         }
-
-        fun UInt.toUBytes(): UByteArray =
-            ubyteArrayOf(
-                (this and 0xFFu).toUByte(),
-                ((this shr 8) and 0xFFu).toUByte(),
-                ((this shr 16) and 0xFFu).toUByte(),
-                ((this shr 24) and 0xFFu).toUByte()
-            )
 
         private fun UByteArray.toUInt(): UInt = this[0].toUInt() or
                 (this[1].toUInt() shl 8) or
@@ -445,16 +437,11 @@ sealed interface Instruction {
 @OptIn(ExperimentalUnsignedTypes::class)
 fun main() {
     val instructions = listOf(
-        InstructionTwo(OperationTwo.MOV, Operand.Register(CpuRegister.EAX), Immediate(0x50u), 1),
-        InstructionTwo(
-            OperationTwo.MOV,
-            Operand.Register(CpuRegister.EBX),
-            Operand.Register(CpuRegister.EAX),
-            2
-        ),
-        InstructionTwo(OperationTwo.MOV, Operand.Register(CpuRegister.ECX), Memory(null, disp = 0), 3),
-        InstructionTwo(OperationTwo.MOV, Memory(null, disp = 0), Operand.Register(CpuRegister.EAX), 4),
-        InstructionTwo(OperationTwo.MOV, Memory(null, disp = 8), Immediate(0x54u), 5),
+        InstructionTwo(OperationTwo.MOV(Bits.B32, Bits.B32), Register(CpuRegister.EAX), Immediate(0x50u, Bits.B32), 1),
+        InstructionTwo(OperationTwo.MOV32, Register(CpuRegister.EBX), Register(CpuRegister.EAX), 2),
+        InstructionTwo(OperationTwo.MOV32, Register(CpuRegister.ECX), Memory(null, disp = 0), 3),
+        InstructionTwo(OperationTwo.MOV32, Memory(null, disp = 0), Register(CpuRegister.EAX), 4),
+        InstructionTwo(OperationTwo.MOV32, Memory(null, disp = 8), Immediate(0x54u, Bits.B32), 5),
     )
 
     val machineCodeParts = mutableListOf<String>()

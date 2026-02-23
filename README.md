@@ -17,7 +17,7 @@ An interpreter for a subset of MASM-like assembly language, written in Kotlin. T
 -   No macros, no `PROC`/`ENDP`, no `DUP`, no `EQU`.
 -   All memory operations are 16-bit word-sized. Strings/bytes are not supported yet.
 -   Flags (`ZF`/`SF`/`CF`) are updated for `ADD`/`SUB`/`CMP` in a simplified manner.
--   The Instruction Pointer (`IP`) is an instruction index, not a byte-based memory address.
+-   The Instruction Pointer (`IP`) is an model.instruction index, not a byte-based memory address.
 
 ## Example Program
 

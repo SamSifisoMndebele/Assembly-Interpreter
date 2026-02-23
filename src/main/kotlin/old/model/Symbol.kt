@@ -1,4 +1,4 @@
-package model
+package old.model
 
 class Symbol(
     val type: String,

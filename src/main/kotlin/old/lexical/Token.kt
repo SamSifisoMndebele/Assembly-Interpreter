@@ -1,4 +1,4 @@
-package lexical
+package old.lexical
 
 /**
  * Represents a token in the source code.

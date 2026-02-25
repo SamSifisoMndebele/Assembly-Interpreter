@@ -1,4 +1,4 @@
-package old.model.operand
+package model.operand
 
 import kotlin.collections.plusAssign
 
@@ -33,7 +33,7 @@ data class Memory(
     }
     override fun toString(): String {
         val parts = mutableListOf<String>()
-        base?.let { parts plusAssign it.cpuRegister.name }
+        base?.let { parts.plusAssign(it.cpuRegister.name) }
         index?.let {
             val idxPart = if (scale == 1u) it.cpuRegister.name else "${it.cpuRegister.name}*${scale}"
             parts += if (parts.isEmpty()) idxPart else "+$idxPart"

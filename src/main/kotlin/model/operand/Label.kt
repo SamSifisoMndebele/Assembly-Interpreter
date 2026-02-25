@@ -1,4 +1,4 @@
-package old.model.operand
+package model.operand
 
 /**
  * Represents a symbolic label operand. This is typically used for jumps and calls

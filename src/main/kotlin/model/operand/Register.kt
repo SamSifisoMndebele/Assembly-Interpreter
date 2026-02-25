@@ -1,6 +1,6 @@
-package old.model.operand
+package model.operand
 
-import old.model.CpuRegister
+import model.CpuRegister
 
 /**
  * Represents a register operand.

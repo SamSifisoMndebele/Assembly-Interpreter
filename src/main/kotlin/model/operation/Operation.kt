@@ -1,9 +1,6 @@
 package model.operation
 
 import model.Bits
-import old.model.operation.OperationOne
-import old.model.operation.OperationTwo
-import old.model.operation.OperationZero
 
 /**
  * Represents a generic CPU model.operation.
@@ -20,7 +17,7 @@ sealed interface Operation {
     val bits: Bits
 
     companion object {
-        val allOperations: Set<Operation>
+        val allOperations: Set<Operation?>
             get() {
                 val opClasses = listOf(
                     OperationZero::class,
@@ -28,7 +25,7 @@ sealed interface Operation {
                     OperationTwo::class
                 )
                 return opClasses.flatMap { opClass ->
-                    opClass.nestedClasses.map { it.objectInstance as Operation }
+                    opClass.nestedClasses.map { it.objectInstance as Operation? }
                 }.toSet()
             }
 

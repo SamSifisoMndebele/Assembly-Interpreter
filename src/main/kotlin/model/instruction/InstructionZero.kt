@@ -1,7 +1,8 @@
-package old.model.instruction
+package model.instruction
 
-import old.model.operation.Operation
-import old.model.Symbol
+import model.operation.Operation
+import model.Symbol
+import model.operation.OperationZero
 
 /**
  * Represents an model.instruction with zero operands.
@@ -13,17 +14,12 @@ import old.model.Symbol
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionZero(
-    override val operation: Operation.OperationZero,
+    override val operation: OperationZero,
     override val line: Int
 ) : Instruction {
     override fun encode(symbols: Map<String, Symbol>): UByteArray = when (operation) {
-        Operation.OperationZero.EXIT -> TODO()
-        Operation.OperationZero.NOP -> TODO()
-        Operation.OperationZero.POPA -> TODO()
-        Operation.OperationZero.POPAD -> TODO()
-        Operation.OperationZero.PUSHA -> TODO()
-        Operation.OperationZero.PUSHAD -> TODO()
-        Operation.OperationZero.RET -> TODO()
+
+        else -> TODO()
     }
 
     override fun toString(): String = "$line: $operation"

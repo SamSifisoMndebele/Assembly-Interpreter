@@ -1,4 +1,4 @@
-package old.model.operand
+package model.operand
 
 /**
  * Represents a 32-bit immediate value operand.

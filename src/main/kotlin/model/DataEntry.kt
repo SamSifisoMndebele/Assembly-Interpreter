@@ -1,4 +1,4 @@
-package old.model
+package model
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class DataEntry(

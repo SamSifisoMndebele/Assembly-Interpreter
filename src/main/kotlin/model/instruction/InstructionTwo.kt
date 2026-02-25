@@ -1,17 +1,15 @@
-package old.model.instruction
+package model.instruction
 
-import old.model.Bits
-import old.model.CpuRegister
-import old.model.Symbol
-import old.model.operand.Identifier
-import old.model.operand.Immediate
-import old.model.operand.Label
-import old.model.operand.Memory
-import old.model.operand.Operand
-import old.model.operand.Register
-import old.model.operation.OperationTwo
-import old.model.operand.Identifier
-import old.utils.toUBytes
+import model.Bits
+import model.CpuRegister
+import model.Symbol
+import model.operand.Identifier
+import model.operand.Immediate
+import model.operand.Label
+import model.operand.Memory
+import model.operand.Operand
+import model.operand.Register
+import model.operation.OperationTwo
 
 /**
  * Represents a two-operand model.instruction.
@@ -33,7 +31,7 @@ class InstructionTwo(
     override val line: Int
 ) : Instruction {
     override fun encode(symbols: Map<String, Symbol>): UByteArray = when (operation) {
-        OperationTwo.MOV32 -> when (destination) {
+        /*OperationTwo.MOV32 -> when (destination) {
             is Register -> when (source) {
                 is Immediate -> {
                     val opcode = (0xB8 + destination.cpuRegister.code.toInt()).toUByte()
@@ -129,7 +127,7 @@ class InstructionTwo(
             }
 
             else -> error("Unsupported MOV destination operand: $destination")
-        }
+        }*/
 
         is OperationTwo.ADD -> {
             when(destination) {
@@ -153,7 +151,7 @@ class InstructionTwo(
                 is Label -> TODO()
             }
         }
-        OperationTwo.ADD(Bits.B32) -> when(destination) {
+        /*OperationTwo.ADD(Bits.B32) -> when(destination) {
             is Register -> when(source) {
                 is Register -> TODO()
                 is Immediate -> TODO()
@@ -163,14 +161,10 @@ class InstructionTwo(
             }
             is Memory -> TODO()
             else -> error("Unsupported ADD destination operand: $destination")
-        }
-        OperationTwo.MOV16 -> TODO()
-        OperationTwo.MOV8 -> TODO()
+        }*/
         is OperationTwo.MOVSX -> TODO()
         is OperationTwo.MOVZX -> TODO()
-        OperationTwo.XCHG16 -> TODO()
-        OperationTwo.XCHG32 -> TODO()
-        OperationTwo.XCHG8 -> TODO()
+        else -> TODO()
     }
 
     override fun toString(): String = "$line: $operation $destination, $source"

@@ -1,13 +1,13 @@
-package old.model.instruction
+package model.instruction
 
-import old.model.Bits
-import old.model.CpuRegister
-import old.model.Symbol
-import old.model.operand.Immediate
-import old.model.operand.Memory
-import old.model.operand.Register
-import old.model.operation.Operation
-import old.model.operation.OperationTwo
+import model.Bits
+import model.CpuRegister
+import model.Symbol
+import model.operand.Immediate
+import model.operand.Memory
+import model.operand.Register
+import model.operation.Operation
+import model.operation.OperationTwo
 
 /**
  * Represents a single x86 assembly model.instruction.
@@ -436,25 +436,25 @@ sealed interface Instruction {
 
 @OptIn(ExperimentalUnsignedTypes::class)
 fun main() {
-    val instructions = listOf(
-        InstructionTwo(OperationTwo.MOV(Bits.B32, Bits.B32), Register(CpuRegister.EAX), Immediate(0x50u, Bits.B32), 1),
-        InstructionTwo(OperationTwo.MOV32, Register(CpuRegister.EBX), Register(CpuRegister.EAX), 2),
-        InstructionTwo(OperationTwo.MOV32, Register(CpuRegister.ECX), Memory(null, disp = 0), 3),
-        InstructionTwo(OperationTwo.MOV32, Memory(null, disp = 0), Register(CpuRegister.EAX), 4),
-        InstructionTwo(OperationTwo.MOV32, Memory(null, disp = 8), Immediate(0x54u, Bits.B32), 5),
-    )
+//    val instructions = listOf(
+//        InstructionTwo(OperationTwo.MOV(Bits.B32, Bits.B32), Register(CpuRegister.EAX), Immediate(0x50u, Bits.B32), 1),
+//        InstructionTwo(OperationTwo.MOV32, Register(CpuRegister.EBX), Register(CpuRegister.EAX), 2),
+//        InstructionTwo(OperationTwo.MOV32, Register(CpuRegister.ECX), Memory(null, disp = 0), 3),
+//        InstructionTwo(OperationTwo.MOV32, Memory(null, disp = 0), Register(CpuRegister.EAX), 4),
+//        InstructionTwo(OperationTwo.MOV32, Memory(null, disp = 8), Immediate(0x54u, Bits.B32), 5),
+//    )
 
     val machineCodeParts = mutableListOf<String>()
     val machineCodeFull = mutableListOf<UByte>()
 
     println("\nInstructions:")
-    instructions.forEachIndexed { index, instruction ->
-        val encodedBytes = instruction.encode()
-        val hexString = encodedBytes.joinToString(" ") { "%02X".format(it.toInt()) }
-        println("$instruction -> $hexString")
-        machineCodeParts.add(hexString)
-        machineCodeFull.addAll(encodedBytes)
-    }
+//    instructions.forEachIndexed { index, instruction ->
+//        val encodedBytes = instruction.encode()
+//        val hexString = encodedBytes.joinToString(" ") { "%02X".format(it.toInt()) }
+//        println("$instruction -> $hexString")
+//        machineCodeParts.add(hexString)
+//        machineCodeFull.addAll(encodedBytes)
+//    }
 
     println(
         "\n Full Raw x86 machine code: " + machineCodeFull.toUByteArray()

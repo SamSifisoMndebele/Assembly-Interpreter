@@ -1,4 +1,4 @@
-package old.model.operand
+package model.operand
 
 /**
  * Represents the different types of operands that can be used in assembly instructions.

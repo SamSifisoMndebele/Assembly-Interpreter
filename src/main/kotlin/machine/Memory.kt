@@ -1,4 +1,4 @@
-package old.cpu
+package machine
 
 /**
  * Represents the memory of the CPU. This implementation focuses on byte-addressable memory

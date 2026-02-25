@@ -1,8 +1,8 @@
 @file:OptIn(ExperimentalUnsignedTypes::class)
 
-package old.utils
+package utils
 
-import old.model.Bits
+import model.Bits
 
 fun UInt.toUBytes(type: String, line: Int): UByteArray {
     return when (type.uppercase()) {
@@ -60,6 +60,6 @@ fun UInt.toUBytes(bits: Bits = Bits.B32, line: Int = -1): UByteArray {
 //                ((value shr 56) and 0xFFuL).toUByte()
 //            )
 //        }
-        Bits.NONE -> error("Unknown data directive bits: $bits at line $line")
+//        Bits.NONE -> error("Unknown data directive bits: $bits at line $line")
     }
 }

@@ -1,12 +1,13 @@
 .data
 x DWORD 1234ABCDh
-y WORD 7,5,8,10
+y WORD 0x7,5o,(8-2)*3,10
 name BYTE "Sam", 0
 char BYTE 'A'
 sum DWORD ?
 count WORD 5h
 
 .code
+start:
     push eax
     push 25h
     push x

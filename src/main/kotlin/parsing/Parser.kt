@@ -1,30 +1,22 @@
-package old.parsing
+package parsing
 
-import old.cpu.Memory
-import old.model.instruction.Instruction
-import old.model.instruction.InstructionOne
-import old.model.instruction.InstructionTwo
-import old.model.instruction.InstructionZero
-import old.lexical.Lexer
-import old.lexical.Token
-import old.model.Bits
-import old.model.CpuRegister
-import old.model.DataEntry
-import old.model.operand.Operand
-import old.model.Symbol // Added import
-import old.model.operand.Identifier
-import old.model.operand.Immediate
-import old.model.operand.Label
-import old.model.operand.Register
-import old.model.operation.OperationOne
-import old.model.operation.OperationTwo
-import old.model.operation.OperationZero
-import old.utils.toUBytes
+import machine.Memory
+import model.Bits
+import model.CpuRegister
+import model.DataEntry
+import model.Symbol
+import model.instruction.Instruction
+import model.instruction.InstructionOne
+import model.instruction.InstructionTwo
+import model.instruction.InstructionZero
+import model.operand.*
+import model.operation.OperationOne
+import model.operation.OperationTwo
+import model.operation.OperationZero
+import utils.toUBytes
 import java.io.File
 import java.io.FileNotFoundException
-import kotlin.math.min
 import kotlin.system.exitProcess
-import kotlin.text.toUInt
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class Parser(source: String, private val memory: Memory) : Lexer(source) {
@@ -48,83 +40,82 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         parseDataSegment()
 
         // 2. Calculate DATA segment base address
-        dataSegmentBase = getTokens().count { it.kind == Token.Kind.OPERATION } * 16L
-        if (dataSegmentBase >= memory.bytes) error("Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}).")
-        if (stackSegmentBase < dataSegmentBase) error("Stack segment base ($stackSegmentBase) is before data segment base ($dataSegmentBase).")
+//        dataSegmentBase = getTokens().count { it.kind == Token1.Kind.OPERATION } * 16L
+//        if (dataSegmentBase >= memory.bytes) error("Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}).")
+//        if (stackSegmentBase < dataSegmentBase) error("Stack segment base ($stackSegmentBase) is before data segment base ($dataSegmentBase).")
 
-        val dataSegStr = dataSegmentBase.toString(16)
-        val codeSegStr = codeSegmentBase.toString(16)
-        val stackSegStr = stackSegmentBase.toString(16)
+//        val dataSegStr = dataSegmentBase.toString(16)
+//        val codeSegStr = codeSegmentBase.toString(16)
+//        val stackSegStr = stackSegmentBase.toString(16)
 
-        println("\n--- Segmentation --- ")
-        println("Code Segment Base  : ${codeSegStr}h")
-        println("Data Segment Base  : ${dataSegStr}h")
-        println("Stack Segment Base : ${stackSegStr}h")
+//        println("\n--- Segmentation --- ")
+//        println("Code Segment Base  : ${codeSegStr}h")
+//        println("Data Segment Base  : ${dataSegStr}h")
+//        println("Stack Segment Base : ${stackSegStr}h")
 
         // For actual memory writing address
-        var memoryCursor = 0L
+//        var memoryCursor = 0L
 
         // 3. Write DATA segment to memory
-        memoryCursor = dataSegmentBase
-        dataEntries.forEach { dataEntry ->
-            symbols[dataEntry.name] = Symbol(dataEntry.type, dataEntry.length, memoryCursor)
-            if (dataEntry.bytes != null) {
-                for (byte in dataEntry.bytes) {
-                    memory.writeByte(memoryCursor++, byte)
-                }
-            } else {
-                memory.writeByte(memoryCursor++, 0u.toUByte())
-            }
-        }
-        if (dataSegmentBase < memory.bytes) {
-            println("\nMemory content of Data Segment [${dataSegStr}h, ${(memoryCursor-1).toString(16)}h]:")
-            val startAddr = dataSegmentBase
-            val endAddr = min(memoryCursor, memory.bytes)
-            memory.dumpMemory(start = startAddr, end = endAddr)
-        }
-        println("\nSymbol table:")
-        println("+------------------+----------+-----+")
-        println("|$BOLD Name             $RESET|$BOLD Address  $RESET|$BOLD Len $RESET|")
-        println("+------------------+----------+-----+")
-        symbols.forEach { (name, symbol) ->
-            val hex = String.format("%08X", symbol.address)
-            val coloredHex = "$YELLOW${hex.substring(0, 7)}$BLUE${hex.last()}$RESET"
-            println(String.format("| %-16s | $coloredHex | %-3d |", name, symbol.length))
-        }
-        println("+------------------+----------+-----+")
+//        memoryCursor = dataSegmentBase
+//        dataEntries.forEach { dataEntry ->
+//            symbols[dataEntry.name] = Symbol(dataEntry.type, dataEntry.length, memoryCursor)
+//            if (dataEntry.bytes != null) {
+//                for (byte in dataEntry.bytes) {
+//                    memory.writeByte(memoryCursor++, byte)
+//                }
+//            } else {
+//                memory.writeByte(memoryCursor++, 0u.toUByte())
+//            }
+//        }
+//        if (dataSegmentBase < memory.bytes) {
+//            println("\nMemory content of Data Segment [${dataSegStr}h, ${(memoryCursor-1).toString(16)}h]:")
+//            val startAddr = dataSegmentBase
+//            val endAddr = min(memoryCursor, memory.bytes)
+//            memory.dumpMemory(start = startAddr, end = endAddr)
+//        }
+//        println("\nSymbol table:")
+//        println("+------------------+----------+-----+")
+//        println("|$BOLD Name             $RESET|$BOLD Address  $RESET|$BOLD Len $RESET|")
+//        println("+------------------+----------+-----+")
+//        symbols.forEach { (name, symbol) ->
+//            val hex = String.format("%08X", symbol.address)
+//            val coloredHex = "$YELLOW${hex.substring(0, 7)}$BLUE${hex.last()}$RESET"
+//            println(String.format("| %-16s | $coloredHex | %-3d |", name, symbol.length))
+//        }
+//        println("+------------------+----------+-----+")
 
         // 4. Parse CODE segment
-        parseCodeSegment()
+//        parseCodeSegment()
 
         // 5. Write CODE segment to memory
-        memoryCursor = codeSegmentBase
-        instructions.forEach { instruction ->
-            val encodedBytes = instruction.encode(symbols) // Pass Map<String, Symbol>
-            encodedBytes.forEach { byte ->
-                if (memoryCursor < memory.bytes) { // Check memory bounds
-                    memory.writeByte(memoryCursor, byte)
-                    memoryCursor++
-                } else {
-                    error("Memory overflow while writing code segment at address $memoryCursor. Max memory: ${memory.bytes}")
-                }
-            }
-        }
-        if (codeSegmentBase < memory.bytes) {
-            println("\nMemory content of Code Segment start [${codeSegStr}h, ${(memoryCursor-1).toString(16)}h]:")
-            val startAddr = codeSegmentBase
-            val endAddr = min(memoryCursor, memory.bytes)
-            memory.dumpMemory(start = startAddr, end = endAddr)
-        }
+//        memoryCursor = codeSegmentBase
+//        instructions.forEach { instruction ->
+//            val encodedBytes = instruction.encode(symbols) // Pass Map<String, Symbol>
+//            encodedBytes.forEach { byte ->
+//                if (memoryCursor < memory.bytes) { // Check memory bounds
+//                    memory.writeByte(memoryCursor, byte)
+//                    memoryCursor++
+//                } else {
+//                    error("Memory overflow while writing code segment at address $memoryCursor. Max memory: ${memory.bytes}")
+//                }
+//            }
+//        }
+//        if (codeSegmentBase < memory.bytes) {
+//            println("\nMemory content of Code Segment start [${codeSegStr}h, ${(memoryCursor-1).toString(16)}h]:")
+//            val startAddr = codeSegmentBase
+//            val endAddr = min(memoryCursor, memory.bytes)
+//            memory.dumpMemory(start = startAddr, end = endAddr)
+//        }
     }
 
     private fun parseDataSegment() {
         if (toDataSegment()) {
             while (hasToken()) {
-                val token = nextToken()
-                when (token.kind) {
-                    Token.Kind.SEGMENT -> break
-                    Token.Kind.IDENTIFIER -> parseDataDefinition(token)
-                    else -> error("Unexpected token kind: ${token.kind}")
+                when (val token = nextToken()) {
+                    is Token.Segment -> break
+                    is Token.Identifier -> parseDataDefinition(token)
+                    else -> error("Unexpected token: $token")
                 }
             }
         }
@@ -133,16 +124,15 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
     private fun parseCodeSegment() {
         if (toCodeSegment()) {
             while (hasToken()) {
-                val token = nextToken()
-                when (token.kind) {
-                    Token.Kind.SEGMENT -> break
-                    Token.Kind.OPERATION -> parseInstruction(token)
-                    Token.Kind.LABEL -> {
+                when (val token = nextToken()) {
+                    is Token.Segment -> break
+                    is Token.Mnemonic -> parseInstruction(token)
+                    is Token.Label -> {
                         // Handle label definitions (e.g., "myLabel:")
                         // For now, we'll just print it. Label handling will be more complex.
                         println("Found label: ${token.text}")
                     }
-                    else -> error("Unexpected token kind: ${token.kind}")
+                    else -> error("Unexpected token: $token")
                 }
             }
         }
@@ -153,12 +143,12 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
     }
 
     private fun parseDataDefinition(token: Token) {
-        require(token.kind == Token.Kind.IDENTIFIER)
+        require(token is Token.Identifier)
         val name = token.text
         val line = token.line
 
-        if (!hasToken() || peekToken().kind != Token.Kind.DATA_DIR) {
-            error("Expected data directive (BYTE, WORD, DWORD, QWORD) after identifier '$name' at line $line, found ${if(hasToken()) peekToken().kind else "EOF"}")
+        if (!hasToken() || peekToken() !is Token.DataDir) {
+            error("Expected data directive (BYTE, WORD, DWORD, QWORD) after identifier '$name' at line $line, found ${if(hasToken()) peekToken() else "EOF"}")
         }
 
         val dataValue = nextDataValue()
@@ -168,43 +158,42 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
 
     private fun nextDataValue(): DataValue {
         val token = nextToken() // Consume data directive
-        require(token.kind == Token.Kind.DATA_DIR) { "Expected data directive, found ${token.kind}" }
+        require(token is Token.DataDir) { "Expected data directive, found $token" }
         val values = mutableListOf<UByte>()
         val type = token.text.uppercase()
         val line = token.line
         var firstValue = true
         while (hasToken()) {
-            val valueToken = peekToken()
-            when (valueToken.kind) {
-                Token.Kind.STRING -> {
-                    nextToken() // Consume string token
+            when (val valueToken = peekToken()) {
+                is Token.Text -> {
+                    nextToken() // Consume text token
                     if (type != "DB" && type != "BYTE") error("Strings can only be defined with BYTE directive at line ${valueToken.line}")
                     // Remove quotes and convert to UByteArray
                     valueToken.text.trim('\'', '"').forEach { char ->
                         values.add(char.code.toUByte())
                     }
                 }
-                Token.Kind.NUMBER_HEX, Token.Kind.NUMBER_BIN, Token.Kind.NUMBER_OCT, Token.Kind.NUMBER_DEC -> {
+                is Token.HexNumber, is Token.BinNumber, is Token.OctNumber, is Token.DecNumber -> {
                     nextToken() // Consume number token
                     val bytes = valueToken.toUInt().toUBytes(type, valueToken.line)
                     values.addAll(bytes)
                 }
-                Token.Kind.UNKNOWN -> { // Handle '?'
+                is Token.UNKNOWN -> { // Handle '?'
                     nextToken() // Consume ? token
                     val bytes = 0u.toUBytes(type, valueToken.line) // Use 0 as the placeholder value
                     values.addAll(bytes)
                 }
                 else -> {
                     // If not a value, it might be the end of this definition or a new line/segment
-                    if (firstValue) error("Expected data value for $type at line $line, found ${valueToken.kind}")
+                    if (firstValue) error("Expected data value for $type at line $line, found $valueToken")
                     return DataValue(type, values.toUByteArray()) // End of current data definition's values
                 }
             }
             firstValue = false
             // Check for comma or end of line/definition
-            if (hasToken() && peekToken().kind == Token.Kind.COMMA) {
+            if (hasToken() && peekToken() is Token.Comma) {
                 nextToken() // Consume comma
-                if (!hasToken() || (!peekToken().isNumber && peekToken().kind != Token.Kind.STRING)) {
+                if (!hasToken() || (!peekToken().isNumber && peekToken() !is Token.Text)) {
                     error("Expected data value after comma for $type at line $line")
                 }
             } else break // No comma, so end of values for this definition
@@ -214,7 +203,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
     }
 
     private fun parseInstruction(token: Token) {
-        require(token.kind == Token.Kind.OPERATION)
+        require(token is Token.Mnemonic)
         val operationName = token.text.uppercase()
         val line = token.line
 
@@ -242,7 +231,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         if (operationTwo != null) {
             if (!hasToken()) error("Missing or invalid destination operand for $operationTwo at line $line")
             val destOperand = nextOperand(operationTwo.bits)
-            if (!hasToken() || nextToken().kind != Token.Kind.COMMA) {
+            if (!hasToken() || nextToken() !is Token.Comma) {
                 if (hasPrevious()) previousToken()
                 error("Expected comma after destination operand for $operationTwo at line $line")
             }
@@ -256,17 +245,16 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
     }
 
     private fun nextOperand(bits: Bits): Operand {
-        val token = nextToken()
-        return when (token.kind) {
-            Token.Kind.REGISTER -> Register(CpuRegister.valueOf(token.text.uppercase()))
-            Token.Kind.NUMBER_HEX -> Immediate(token.text.removePrefix("0x").removeSuffix("h").toUInt(16))
-            Token.Kind.NUMBER_DEC -> Immediate(token.text.toUInt())
-            Token.Kind.IDENTIFIER -> Identifier(token.text)
-            Token.Kind.NUMBER_BIN -> Immediate(token.text.removePrefix("0b").removeSuffix("b").toUInt(2))
-            Token.Kind.NUMBER_OCT -> Immediate(token.text.removePrefix("0o").removeSuffix("o").toUInt(8))
-            Token.Kind.STRING -> TODO("String operand parsing not yet implemented")
-            Token.Kind.LABEL -> Label(token.text)
-            Token.Kind.LBRACKET -> {
+        return when (val token = nextToken()) {
+            is Token.Register -> Register(CpuRegister.valueOf(token.text.uppercase()))
+            is Token.HexNumber -> Immediate(token.text.removePrefix("0x").removeSuffix("h").toUInt(16))
+            is Token.DecNumber -> Immediate(token.text.toUInt())
+            is Token.BinNumber -> Immediate(token.text.removePrefix("0b").removeSuffix("b").toUInt(2))
+            is Token.OctNumber -> Immediate(token.text.removePrefix("0o").removeSuffix("o").toUInt(8))
+            is Token.Identifier -> Identifier(token.text)
+            is Token.Text -> TODO("String operand parsing not yet implemented")
+            is Token.Label -> Label(token.text)
+            is Token.LBracket -> {
                 // Memory operand parsing: [base + index*scale + displacement]
                 if (!hasToken()) error("Incomplete memory operand at line ${token.line}")
 
@@ -283,9 +271,9 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                 while (true) {
                     if (expectOperand) {
                         when {
-                            next.kind == Token.Kind.REGISTER -> {
+                            next is Token.Register -> {
                                 val peek = peekToken()
-                                if (peek.kind == Token.Kind.MULT) {
+                                if (peek is Token.Multi) {
                                     if (index != null) error("Multiple index registers in memory operand at line ${next.line}")
                                     index = parseRegister(next.text)
                                     require(index.cpuRegister != CpuRegister.ESP) {
@@ -308,7 +296,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                                     }
                                 }
                             }
-                            next.kind == Token.Kind.IDENTIFIER -> {
+                            next is Token.Identifier -> {
                                 val symbol = symbols[next.text] ?: error("Undefined symbol '${next.text}' in memory operand at line ${next.line}")
                                 val value = when (symbol.size) {
                                     1 -> memory.readByte(symbol.address).toLong()
@@ -326,19 +314,19 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     }
                     if (!hasToken()) error("Unclosed memory operand at line ${token.line}")
                     next = nextToken()
-                    when (next.kind) {
-                        Token.Kind.RBRACKET -> break
-                        Token.Kind.PLUS -> {
+                    when (next) {
+                        is Token.RBracket -> break
+                        is Token.Plus -> {
                             next = nextToken()
                             expectOperand = true
                         }
-                        else -> error("Unexpected token ${next.kind} in memory operand at line ${next.line}")
+                        else -> error("Unexpected token $next in memory operand at line ${next.line}")
                     }
                 }
 
-                return old.model.operand.Memory(base, index, scale, displacement)
+                Memory(base, index, scale, displacement)
             }
-            else -> error("Unknown or unexpected operand type: ${token.kind} ('${token.text}') at line ${token.line}")
+            else -> error("Unknown or unexpected operand type: ${token::class.simpleName} ('${token.text}') at line ${token.line}")
         }
     }
 
@@ -349,24 +337,24 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         const val BOLD = "\u001B[1m"
 
         private fun Token.toUInt(): UInt {
-            require(isNumber) { "Token is not a number: $this" }
-            return when (kind) {
-                Token.Kind.NUMBER_HEX -> text.removePrefix("0x").removeSuffix("h").toUInt(16)
-                Token.Kind.NUMBER_BIN -> text.removePrefix("0b").removeSuffix("b").toUInt(2)
-                Token.Kind.NUMBER_OCT -> text.removePrefix("0o").removeSuffix("o").toUInt(8)
-                Token.Kind.NUMBER_DEC -> text.toUInt()
-                else -> error("Invalid token kind for number conversion: $kind at line $line")
+            require(isNumber) { "Token1 is not a number: $this" }
+            return when (this) {
+                is Token.HexNumber -> text.removePrefix("0x").removeSuffix("h").toUInt(16)
+                is Token.BinNumber -> text.removePrefix("0b").removeSuffix("b").toUInt(2)
+                is Token.OctNumber -> text.removePrefix("0o").removeSuffix("o").toUInt(8)
+                is Token.DecNumber -> text.toUInt()
+                else -> error("Invalid token kind for number conversion: $this at line $line")
             }
         }
 
         private fun Token.toLong(): Long {
-            require(isNumber) { "Token is not a number: $this" }
-            return when (kind) {
-                Token.Kind.NUMBER_HEX -> text.removePrefix("0x").removeSuffix("h").toLong(16)
-                Token.Kind.NUMBER_BIN -> text.removePrefix("0b").removeSuffix("b").toLong(2)
-                Token.Kind.NUMBER_OCT -> text.removePrefix("0o").removeSuffix("o").toLong(8)
-                Token.Kind.NUMBER_DEC -> text.toLong()
-                else -> error("Invalid token kind for number conversion: $kind at line $line")
+            require(isNumber) { "Token1 is not a number: $this" }
+            return when (this) {
+                is Token.HexNumber -> text.removePrefix("0x").removeSuffix("h").toLong(16)
+                is Token.BinNumber -> text.removePrefix("0b").removeSuffix("b").toLong(2)
+                is Token.OctNumber -> text.removePrefix("0o").removeSuffix("o").toLong(8)
+                is Token.DecNumber -> text.toLong()
+                else -> error("Invalid token kind for number conversion: $this at line $line")
             }
         }
 
@@ -438,9 +426,9 @@ fun dumpSymbolTable(symbols: Map<String, Long>) {
 
 fun main() {
     val src = try {
-        File("src/old.main/kotlin/old.main.asm").readText()
+        File("src/main/kotlin/main.asm").readText()
     } catch (e: FileNotFoundException) {
-        println("Error: ${e.message}, Source file not found: src/old.main/kotlin/old.main.asm")
+        println("Error: ${e.message}, Source file not found: src/main/kotlin/main.asm")
         println("Please provide a valid path as a command-line argument or make sure the default file exists.")
         exitProcess(1)
     }

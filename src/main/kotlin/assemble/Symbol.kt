@@ -1,4 +1,4 @@
-package model
+package assemble
 
 class Symbol(
     val type: String,

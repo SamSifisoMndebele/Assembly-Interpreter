@@ -1,4 +1,4 @@
-package model
+package isa
 
 /**
  * Represents the registers available in an x86-like architecture.

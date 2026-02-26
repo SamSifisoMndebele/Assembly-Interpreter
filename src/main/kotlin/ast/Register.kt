@@ -1,6 +1,6 @@
-package model.operand
+package ast
 
-import model.CpuRegister
+import isa.CpuRegister
 
 /**
  * Represents a register operand.

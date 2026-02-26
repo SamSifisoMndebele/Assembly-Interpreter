@@ -1,6 +1,4 @@
-package model.mnemonic
-
-import model.Encoding
+package isa
 
 /**
  * Represents a generic CPU model.operation.

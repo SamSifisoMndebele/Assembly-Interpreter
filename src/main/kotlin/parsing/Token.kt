@@ -10,8 +10,8 @@ import java.util.regex.Pattern
  * @property line The line number where this token was found.
  */
 sealed class Token(open val text: String, open val line: Int) {
-    val length: Int = text.length
-    val value: String = text
+    val length: Int get() = text.length
+    val value: String get() = text
     val isNumber: Boolean
         get() = this is HexNumber || this is BinNumber || this is OctNumber || this is RealNumber || this is DecNumber
 
@@ -63,6 +63,13 @@ sealed class Token(open val text: String, open val line: Int) {
         companion object : Factory {
             override val pattern: Pattern = Pattern.compile("^\\*")
             override fun create(text: String, line: Int): Token = Multi(line)
+        }
+    }
+
+    data class Div(override val line: Int) : Token("/", line) {
+        companion object : Factory {
+            override val pattern: Pattern = Pattern.compile("^/")
+            override fun create(text: String, line: Int) = Div(line)
         }
     }
 
@@ -230,15 +237,24 @@ sealed class Token(open val text: String, open val line: Int) {
         }
     }
 
-    /**
-     * Represents an expression token.
-     * @param text The string representation of the token.
-     * @param line The line number where this token was found.
-     */
-    data class Expression(override val text: String, override val line: Int) : Token(text, line) {
+    data class LParen(override val line: Int) : Token("(", line) {
         companion object : Factory {
-            override val pattern: Pattern = Pattern.compile("^[a-z_@?$][a-z0-9_@?$]*\\s*\\+?\\s*[a-z_@?$][a-z0-9_@?$]*", Pattern.CASE_INSENSITIVE)
-            override fun create(text: String, line: Int) = Expression(text, line)
+            override val pattern: Pattern = Pattern.compile("^\\(")
+            override fun create(text: String, line: Int) = LParen(line)
+        }
+    }
+
+    data class RParen(override val line: Int) : Token(")", line) {
+        companion object : Factory {
+            override val pattern: Pattern = Pattern.compile("^\\)")
+            override fun create(text: String, line: Int) = RParen(line)
+        }
+    }
+
+    data class Uninitialized(override val line: Int) : Token("?", line) {
+        companion object : Factory {
+            override val pattern: Pattern = Pattern.compile("^\\?")
+            override fun create(text: String, line: Int) = Uninitialized(line)
         }
     }
 

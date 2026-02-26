@@ -1,7 +1,8 @@
 package parsing
 
-import model.operation.Operation
+import model.mnemonic.Mnemonic
 import kotlin.NoSuchElementException
+import kotlin.reflect.full.companionObjectInstance
 
 /**
  * The Lexer class is responsible for tokenizing the input source code.
@@ -29,7 +30,7 @@ import kotlin.NoSuchElementException
  */
 abstract class Lexer(source: String) {
     companion object {
-        private val operations = Operation.allOperations.map { it.toString().lowercase() }
+        private val operations = Mnemonic.allMnemonics.map { it.toString().lowercase() }
     }
 
     private val tokens = mutableListOf<Token>()
@@ -48,26 +49,22 @@ abstract class Lexer(source: String) {
             var line = string
             val lineNumber = i + 1
             while (line.isNotEmpty()) {
-                val token = line.nextToken(lineNumber)
-                if (token != null) {
-                    tokens += token
-                    line = line.substring(token.length).trimStart(' ', '\t', '\r', '\n', ':')
-                    if (token is Token.DataDir) while (line.startsWith('(') && line.endsWith(')')) {
-                        line = line.substring(1, line.length - 1).trim()
-                    }
-                } else {
-                    // Unknown char → consume 1 to avoid infinite loop
-                    tokens += Token.UNKNOWN(line[0].toString(), lineNumber)
-                    line = line.substring(1)
+                val token = line.nextToken(lineNumber) ?: error("Unknown token at line $lineNumber: '$line'")
+                tokens += token
+                line = line.substring(token.length).trim()
+                if (token is Token.DataDir) while (line.startsWith('(') && line.endsWith(')')) {
+                    line = line.substring(1, line.length - 1).trim()
                 }
             }
         }
     }
 
     private inline fun <reified T : Token> String.match(line: Int): T? {
-        val factory = T::class.objectInstance as Token.Factory
+        val factory = T::class.companionObjectInstance as Token.Factory
         val matcher = factory.pattern.matcher(this)
-        return if (matcher.find()) { factory.create(matcher.group(), line) as? T } else null
+        return if (matcher.find()) {
+            factory.create(matcher.group().lowercase(), line) as T
+        } else null
     }
 
     private fun String.nextToken(line: Int): Token? {
@@ -77,7 +74,9 @@ abstract class Lexer(source: String) {
             if (!labels.add(it.text)) TODO("Label '${it.text}' is already defined at line $line")
             return it
         }
+        match<Token.Uninitialized>(line)?.let { return it }
         match<Token.Text>(line)?.let { return it }
+        nextPunctuationToken(line)?.let { return it }
         match<Token.RealNumber>(line)?.let { return it }
         match<Token.HexNumber>(line)?.let { return it }
         match<Token.BinNumber>(line)?.let { return it }
@@ -88,16 +87,20 @@ abstract class Lexer(source: String) {
             return if (operations.contains(it.text.lowercase())) Token.Mnemonic(it.text, it.line)
             else it
         }
+
+        return null
+    }
+
+    private fun String.nextPunctuationToken(line: Int): Token? {
         match<Token.Comma>(line)?.let { return it }
         match<Token.LBracket>(line)?.let { return it }
         match<Token.RBracket>(line)?.let { return it }
-        match<Token.Multi>(line)?.let { return it }
+        match<Token.LParen>(line)?.let { return it }
+        match<Token.RParen>(line)?.let { return it }
         match<Token.Plus>(line)?.let { return it }
         match<Token.Minus>(line)?.let { return it }
-
-        // Match expressions (before numbers and identifiers to ensure precedence)
-        match<Token.Expression>(line)?.let { return it }
-
+        match<Token.Multi>(line)?.let { return it }
+        match<Token.Div>(line)?.let { return it }
         return null
     }
 

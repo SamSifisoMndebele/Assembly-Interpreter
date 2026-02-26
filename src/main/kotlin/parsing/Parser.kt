@@ -10,9 +10,9 @@ import model.instruction.InstructionOne
 import model.instruction.InstructionTwo
 import model.instruction.InstructionZero
 import model.operand.*
-import model.operation.OperationOne
-import model.operation.OperationTwo
-import model.operation.OperationZero
+import model.mnemonic.MnemonicOne
+import model.mnemonic.MnemonicTwo
+import model.mnemonic.MnemonicZero
 import utils.toUBytes
 import java.io.File
 import java.io.FileNotFoundException
@@ -37,7 +37,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         getTokens().forEach { println(it) } // Debug: Print all tokens first
 
         // 1. Parse DATA segment
-        parseDataSegment()
+//        parseDataSegment()
 
         // 2. Calculate DATA segment base address
 //        dataSegmentBase = getTokens().count { it.kind == Token1.Kind.OPERATION } * 16L
@@ -207,17 +207,17 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         val operationName = token.text.uppercase()
         val line = token.line
 
-        val operationZero = OperationZero::class.nestedClasses.find {
+        val operationZero = MnemonicZero::class.nestedClasses.find {
             it.simpleName?.uppercase() == operationName
-        }?.objectInstance as OperationZero?
+        }?.objectInstance as MnemonicZero?
         if (operationZero != null) {
             instructions.add(InstructionZero(operationZero, line))
             return
         }
 
-        val operationOne = OperationOne::class.nestedClasses.find {
+        val operationOne = MnemonicOne::class.nestedClasses.find {
             it.simpleName?.uppercase() == operationName
-        }?.objectInstance as OperationOne?
+        }?.objectInstance as MnemonicOne?
         if (operationOne != null) {
             if (!hasToken()) error("Expected operand for $operationOne at line $line, but found no more tokens.")
             val operand = nextOperand(operationOne.bits)
@@ -225,9 +225,9 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             return
         }
 
-        val operationTwo = OperationTwo::class.nestedClasses.find {
+        val operationTwo = MnemonicTwo::class.nestedClasses.find {
             it.simpleName?.uppercase() == operationName
-        }?.objectInstance as OperationTwo?
+        }?.objectInstance as MnemonicTwo?
         if (operationTwo != null) {
             if (!hasToken()) error("Missing or invalid destination operand for $operationTwo at line $line")
             val destOperand = nextOperand(operationTwo.bits)

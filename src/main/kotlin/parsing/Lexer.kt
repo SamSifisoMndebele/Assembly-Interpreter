@@ -1,7 +1,6 @@
 package parsing
 
-import model.mnemonic.Mnemonic
-import kotlin.NoSuchElementException
+import isa.Mnemonic
 import kotlin.reflect.full.companionObjectInstance
 
 /**

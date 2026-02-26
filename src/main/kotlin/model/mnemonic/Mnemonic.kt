@@ -1,6 +1,6 @@
 package model.mnemonic
 
-import model.Bits
+import model.Encoding
 
 /**
  * Represents a generic CPU model.operation.
@@ -13,21 +13,17 @@ import model.Bits
  * Each model.operation has an associated [opcode].
  */
 sealed interface Mnemonic {
-    val opcode: UByte
-    val bits: Bits
+    val encoding: Encoding
 
     companion object {
-        val allMnemonics: Set<Mnemonic?>
-            get() {
-                val opClasses = listOf(
-                    MnemonicZero::class,
-                    MnemonicOne::class,
-                    MnemonicTwo::class
-                )
-                return opClasses.flatMap { opClass ->
-                    opClass.nestedClasses.map { it.objectInstance as Mnemonic? }
-                }.toSet()
-            }
-
+        val allMnemonics: Set<Mnemonic> by lazy {
+            listOf(
+                MnemonicZero::class,
+                MnemonicOne::class,
+                MnemonicTwo::class
+            ).flatMap { parent ->
+                parent.sealedSubclasses.mapNotNull { it.objectInstance }
+            }.toSet()
+        }
     }
 }

@@ -1,6 +1,6 @@
 package model.mnemonic
 
-import model.Bits
+import model.Encoding
 
 /**
  * Represents operations that typically take one operand.
@@ -14,27 +14,20 @@ sealed interface MnemonicOne : Mnemonic {
     /**
      * Pushes a 16-bit or 32-bit operand onto the stack.
      * The operand can be a register or a memory location.
-     *
-     * @property bits The size of the operand to be pushed (16 or 32 bits).
      */
-    data class PUSH(
-        override val bits: Bits  // 16 or 32
-    ) : MnemonicOne {
+    data object PUSH : MnemonicOne {
 
-        init {
-            require(bits == Bits.B16 || bits == Bits.B32) {
-                "PUSH only supports 16- or 32-bit operands: $bits"
-            }
-        }
 
         /**
          * Opcode is always 0xFF for PUSH r/m16/32.
          * The actual operand (reg/mem) is encoded in the ModR/M byte with /6.
          * 16-bit instructions require a 0x66 operand-size prefix (handled in encoder).
          */
-        override val opcode: UByte = 0xFFu
-
-        override fun toString(): String = "PUSH ${bits.name}"
+        override val encoding = Encoding(
+            opcode = listOf(0xFFu),
+            modRmExtension = 6
+        )
+        override fun toString(): String = "push"
     }
 
     /**
@@ -44,24 +37,17 @@ sealed interface MnemonicOne : Mnemonic {
      *
      * @property bits The size of the operand (16 or 32 bits).
      */
-    data class POP(
-        override val bits: Bits  // 16 or 32
-    ) : MnemonicOne {
-
-        init {
-            require(bits == Bits.B16 || bits == Bits.B32) {
-                "POP only supports 16- or 32-bit operands: $bits"
-            }
-        }
-
+    data object POP : MnemonicOne {
         /**
          * Opcode is always 0x8F for POP r/m16/32.
          * The actual operand (reg/mem) is encoded in the ModR/M byte with /0.
          * 16-bit instructions require a 0x66 operand-size prefix (handled in encoder).
          */
-        override val opcode: UByte = 0x8Fu
-
-        override fun toString(): String = "POP ${bits.name}"
+        override val encoding = Encoding(
+            opcode = listOf(0x8Fu),
+            modRmExtension = 6
+        )
+        override fun toString(): String = "pop"
     }
 
 }

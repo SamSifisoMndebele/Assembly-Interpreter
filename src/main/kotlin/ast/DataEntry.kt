@@ -1,4 +1,4 @@
-package model
+package ast
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class DataEntry(

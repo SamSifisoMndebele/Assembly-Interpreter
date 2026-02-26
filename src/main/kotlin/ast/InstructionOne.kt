@@ -1,15 +1,8 @@
-package model.instruction
+package ast
 
-import model.Bits
-import model.CpuRegister
-import model.Symbol
-import model.operand.Identifier
-import model.operand.Immediate
-import model.operand.Label
-import model.operand.Memory
-import model.operand.Operand
-import model.operand.Register
-import model.mnemonic.MnemonicOne
+import assemble.Symbol
+import isa.CpuRegister
+import isa.MnemonicOne
 import utils.toUBytes
 
 /**
@@ -26,51 +19,31 @@ class InstructionOne(
 ) : Instruction {
     override fun encode(symbols: Map<String, Symbol>): UByteArray {
         return when (mnemonic) {
-            MnemonicOne.POP(Bits.B16) -> TODO()
-            MnemonicOne.POP(Bits.B32) -> TODO()
-            MnemonicOne.PUSH(Bits.B16) -> when(operand) {
+            MnemonicOne.POP -> TODO()
+            MnemonicOne.PUSH -> when(operand) {
                 is Immediate -> {
                     // PUSH imm16 → 0x66 0x68 + imm16
-                    val bytes = operand.value.toUBytes(Bits.B16)
-                    ubyteArrayOf(0x66u, 0x68u, *bytes)
+                    // PUSH imm32 → 0x68 + imm32 (little-endian)
+                    val bytes = operand.value.toUBytes(32) // Assuming 32-bit for now
+                    ubyteArrayOf(0x68u, *bytes)
                 }
                 is Register -> {
-                    when (operand.cpuRegister) {
-                        // 16-bit general-purpose registers (operand-size prefix 0x66)
-                        CpuRegister.AX, CpuRegister.CX, CpuRegister.DX, CpuRegister.BX,
-                        CpuRegister.SP, CpuRegister.BP, CpuRegister.SI, CpuRegister.DI -> {
+                    when {
+                        operand.cpuRegister.is16Bit -> {
                             ubyteArrayOf(0x66u, (0x50u + operand.cpuRegister.code).toUByte()) // PUSH r16
                         }
-
+                        operand.cpuRegister.is32Bit -> {
+                            ubyteArrayOf((0x50u + operand.cpuRegister.code).toUByte()) // PUSH r32
+                        }
                         // Segment registers
-                        CpuRegister.CS -> ubyteArrayOf(0x0Eu)
-                        CpuRegister.SS -> ubyteArrayOf(0x16u)
-                        CpuRegister.DS -> ubyteArrayOf(0x1Eu)
-                        CpuRegister.ES -> ubyteArrayOf(0x06u)
+                        operand.cpuRegister == CpuRegister.CS -> ubyteArrayOf(0x0Eu)
+                        operand.cpuRegister == CpuRegister.SS -> ubyteArrayOf(0x16u)
+                        operand.cpuRegister == CpuRegister.DS -> ubyteArrayOf(0x1Eu)
+                        operand.cpuRegister == CpuRegister.ES -> ubyteArrayOf(0x06u)
     //                    CpuRegister.FS -> ubyteArrayOf(0x0Fu, 0xA0u)
     //                    CpuRegister.GS -> ubyteArrayOf(0x0Fu, 0xA8u)
 
                         // 8-bit registers are not directly PUSH able
-                        else -> error("PUSH for register ${operand.cpuRegister.name} is not supported.")
-                    }
-                }
-                is Identifier -> TODO()
-                is Label -> TODO()
-                is Memory -> TODO()
-            }
-            MnemonicOne.PUSH(Bits.B32) -> when(operand) {
-                is Immediate -> {
-                    // PUSH imm32 → 0x68 + imm32 (little-endian)
-                    val bytes = operand.value.toUBytes(Bits.B32)
-                    ubyteArrayOf(0x68u, *bytes)
-                }
-                is Register -> {
-                    when (operand.cpuRegister) {
-                        // 32-bit general-purpose registers
-                        CpuRegister.EAX, CpuRegister.ECX, CpuRegister.EDX, CpuRegister.EBX,
-                        CpuRegister.ESP, CpuRegister.EBP, CpuRegister.ESI, CpuRegister.EDI -> {
-                            ubyteArrayOf((0x50u + operand.cpuRegister.code).toUByte()) // PUSH r32
-                        }
                         else -> error("PUSH for register ${operand.cpuRegister.name} is not supported.")
                     }
                 }
@@ -102,7 +75,7 @@ class InstructionOne(
                     if (operand.base == null && operand.index != null) {
                         val indexCode = operand.index.cpuRegister.code
                         val modrm: UByte = 0x00u.toUByte() or (6u shl 3).toUByte() or 0x04u // rm=100 → SIB present
-                        val sib: UByte = ((operand.scale and 0x3u) shl 6).toUByte() or
+                        val sib: UByte = ((operand.scale.toInt() and 0x3) shl 6).toUByte() or
                                 ((indexCode.toUInt() and 0x7u) shl 3).toUByte() or
                                 0x05u // base=101 → no base, disp32 follows
                         val dispBytes = ubyteArrayOf(
@@ -143,8 +116,6 @@ class InstructionOne(
                     }
                 }
             }
-
-            else -> TODO()
         }
     }
 

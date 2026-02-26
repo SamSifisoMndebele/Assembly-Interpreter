@@ -1,7 +1,7 @@
-package model.instruction
+package ast
 
-import model.Symbol
-import model.mnemonic.MnemonicZero
+import assemble.Symbol
+import isa.MnemonicZero
 
 /**
  * Represents an model.instruction with zero operands.

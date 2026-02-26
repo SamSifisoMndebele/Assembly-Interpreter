@@ -1,4 +1,4 @@
-package model
+package ast
 
 /**
  * Represents the different segments of memory in the simulated computer.

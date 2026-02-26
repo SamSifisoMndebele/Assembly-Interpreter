@@ -9,26 +9,26 @@ import model.operand.Label
 import model.operand.Memory
 import model.operand.Operand
 import model.operand.Register
-import model.operation.OperationOne
+import model.mnemonic.MnemonicOne
 import utils.toUBytes
 
 /**
  * Represents an model.instruction with one operand.
- * @property operation The operation to be performed.
+ * @property mnemonic The operation to be performed.
  * @property operand The operand of the model.instruction.
  * @property line The line number of the model.instruction in the source code.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionOne(
-    override val operation: OperationOne,
+    override val mnemonic: MnemonicOne,
     val operand: Operand,
     override val line: Int
 ) : Instruction {
     override fun encode(symbols: Map<String, Symbol>): UByteArray {
-        return when (operation) {
-            OperationOne.POP(Bits.B16) -> TODO()
-            OperationOne.POP(Bits.B32) -> TODO()
-            OperationOne.PUSH(Bits.B16) -> when(operand) {
+        return when (mnemonic) {
+            MnemonicOne.POP(Bits.B16) -> TODO()
+            MnemonicOne.POP(Bits.B32) -> TODO()
+            MnemonicOne.PUSH(Bits.B16) -> when(operand) {
                 is Immediate -> {
                     // PUSH imm16 → 0x66 0x68 + imm16
                     val bytes = operand.value.toUBytes(Bits.B16)
@@ -58,7 +58,7 @@ class InstructionOne(
                 is Label -> TODO()
                 is Memory -> TODO()
             }
-            OperationOne.PUSH(Bits.B32) -> when(operand) {
+            MnemonicOne.PUSH(Bits.B32) -> when(operand) {
                 is Immediate -> {
                     // PUSH imm32 → 0x68 + imm32 (little-endian)
                     val bytes = operand.value.toUBytes(Bits.B32)
@@ -148,5 +148,5 @@ class InstructionOne(
         }
     }
 
-    override fun toString(): String = "$line: $operation $operand"
+    override fun toString(): String = "$line: $mnemonic $operand"
 }

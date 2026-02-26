@@ -1,4 +1,4 @@
-package model.operation
+package model.mnemonic
 
 import model.Bits
 
@@ -6,38 +6,38 @@ import model.Bits
  * Represents operations that do not take any operands.
  * These are typically single-byte instructions.
  */
-sealed interface OperationZero : Operation {
-    data object NOP : OperationZero {
+sealed interface MnemonicZero : Mnemonic {
+    data object NOP : MnemonicZero {
         override val opcode: UByte = 0x90u
         override val bits: Bits = Bits.B32
     }
 
-    data object RET : OperationZero {
+    data object RET : MnemonicZero {
         override val opcode: UByte = 0xC3u
         override val bits: Bits = Bits.B32
     }
 
-    data object EXIT : OperationZero {
+    data object EXIT : MnemonicZero {
         override val opcode: UByte = 0x00u
         override val bits: Bits = Bits.B32
     }
 
-    data object PUSHA : OperationZero {
+    data object PUSHA : MnemonicZero {
         override val opcode: UByte = 0x60u
         override val bits: Bits = Bits.B16 // 16-bit registers
     }
 
-    data object PUSHAD : OperationZero {
+    data object PUSHAD : MnemonicZero {
         override val opcode: UByte = 0x60u
         override val bits: Bits = Bits.B32 // 32-bit registers
     }
 
-    data object POPA : OperationZero {
+    data object POPA : MnemonicZero {
         override val opcode: UByte = 0x61u
         override val bits: Bits = Bits.B16 // 16-bit registers
     }
 
-    data object POPAD : OperationZero {
+    data object POPAD : MnemonicZero {
         override val opcode: UByte = 0x61u
         override val bits: Bits = Bits.B32 // 32-bit registers
     }

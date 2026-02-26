@@ -1,4 +1,4 @@
-package model.operation
+package model.mnemonic
 
 import model.Bits
 
@@ -8,12 +8,12 @@ import model.Bits
  * Note: Some instructions might have variations that take one operand.
  * This interface primarily covers their two-operands forms.
  */
-sealed interface OperationTwo : Operation {
+sealed interface MnemonicTwo : Mnemonic {
     /* ------------------- MOV ------------------- */
     data class MOV(
         val destBits: Bits,        // 8, 16, or 32
         val srcBits: Bits          // 8, 16, or 32
-    ) : OperationTwo {
+    ) : MnemonicTwo {
         init {
             require(destBits == Bits.B8 || destBits == Bits.B16 || destBits == Bits.B32) {
                 "Invalid destBits value: $destBits"
@@ -37,7 +37,7 @@ sealed interface OperationTwo : Operation {
     data class XCHG(
         val destBits: Bits,        // 8, 16, or 32
         val srcBits: Bits          // 8, 16, or 32
-    ) : OperationTwo {
+    ) : MnemonicTwo {
         init {
             require(destBits == Bits.B8 || destBits == Bits.B16 || destBits == Bits.B32) {
                 "Invalid destBits value: $destBits"
@@ -61,7 +61,7 @@ sealed interface OperationTwo : Operation {
     data class MOVZX(
         val destBits: Bits,        // 16 or 32 (destination register size)
         val srcBits: Bits          // 8 or 16 (source operand size)
-    ) : OperationTwo {
+    ) : MnemonicTwo {
         init {
             require(srcBits == Bits.B8 || srcBits == Bits.B16) {
                 "Invalid srcBits value: $srcBits"
@@ -83,7 +83,7 @@ sealed interface OperationTwo : Operation {
     data class MOVSX(
         val destBits: Bits,        // 16 or 32 (destination register size)
         val srcBits: Bits          // 8 or 16 (source operand size)
-    ) : OperationTwo {
+    ) : MnemonicTwo {
         init {
             require(srcBits == Bits.B8 || srcBits == Bits.B16) {
                 "Invalid srcBits value: $srcBits"
@@ -111,7 +111,7 @@ sealed interface OperationTwo : Operation {
     data class ADD(
         val destBits: Bits,  // 8, 16, or 32 (destination operand size)
         val srcBits: Bits    // 8, 16, or 32 (source operand size)
-    ) : OperationTwo {
+    ) : MnemonicTwo {
 
         init {
             require(destBits in setOf(Bits.B8, Bits.B16, Bits.B32)) {

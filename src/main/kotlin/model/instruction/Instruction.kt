@@ -1,13 +1,7 @@
 package model.instruction
 
-import model.Bits
-import model.CpuRegister
 import model.Symbol
-import model.operand.Immediate
-import model.operand.Memory
-import model.operand.Register
-import model.operation.Operation
-import model.operation.OperationTwo
+import model.mnemonic.Mnemonic
 
 /**
  * Represents a single x86 assembly model.instruction.
@@ -27,7 +21,7 @@ sealed interface Instruction {
     /**
      * The operation to be performed.
      */
-    val operation: Operation
+    val mnemonic: Mnemonic
 
     /**
      * The line number of the model.instruction in the source code.

@@ -1,7 +1,5 @@
 package model.instruction
 
-import model.Bits
-import model.CpuRegister
 import model.Symbol
 import model.operand.Identifier
 import model.operand.Immediate
@@ -9,7 +7,7 @@ import model.operand.Label
 import model.operand.Memory
 import model.operand.Operand
 import model.operand.Register
-import model.operation.OperationTwo
+import model.mnemonic.MnemonicTwo
 
 /**
  * Represents a two-operand model.instruction.
@@ -18,19 +16,19 @@ import model.operation.OperationTwo
  * such as MOV, ADD, SUB, etc. It determines the correct opcode and ModR/M byte
  * based on the types of the destination and source operands.
  *
- * @property operation The specific operation to be performed (e.g., MOV, ADD).
+ * @property mnemonic The specific operation to be performed (e.g., MOV, ADD).
  * @property destination The destination operand.
  * @property source The source operand.
  * @property line The line number in the source code where this model.instruction was defined.
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class InstructionTwo(
-    override val operation: OperationTwo,
+    override val mnemonic: MnemonicTwo,
     val destination: Operand,
     val source: Operand,
     override val line: Int
 ) : Instruction {
-    override fun encode(symbols: Map<String, Symbol>): UByteArray = when (operation) {
+    override fun encode(symbols: Map<String, Symbol>): UByteArray = when (mnemonic) {
         /*OperationTwo.MOV32 -> when (destination) {
             is Register -> when (source) {
                 is Immediate -> {
@@ -129,7 +127,7 @@ class InstructionTwo(
             else -> error("Unsupported MOV destination operand: $destination")
         }*/
 
-        is OperationTwo.ADD -> {
+        is MnemonicTwo.ADD -> {
             when(destination) {
                 is Register -> when(source) {
                     is Register -> {
@@ -162,10 +160,10 @@ class InstructionTwo(
             is Memory -> TODO()
             else -> error("Unsupported ADD destination operand: $destination")
         }*/
-        is OperationTwo.MOVSX -> TODO()
-        is OperationTwo.MOVZX -> TODO()
+        is MnemonicTwo.MOVSX -> TODO()
+        is MnemonicTwo.MOVZX -> TODO()
         else -> TODO()
     }
 
-    override fun toString(): String = "$line: $operation $destination, $source"
+    override fun toString(): String = "$line: $mnemonic $destination, $source"
 }

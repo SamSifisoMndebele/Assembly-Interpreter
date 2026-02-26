@@ -1,4 +1,4 @@
-package model.operation
+package model.mnemonic
 
 import model.Bits
 
@@ -9,7 +9,7 @@ import model.Bits
  * Note: Some instructions listed here might have variations that take two operands
  * or an immediate value. This interface primarily covers their one-operand forms.
  */
-sealed interface OperationOne : Operation {
+sealed interface MnemonicOne : Mnemonic {
 
     /**
      * Pushes a 16-bit or 32-bit operand onto the stack.
@@ -19,7 +19,7 @@ sealed interface OperationOne : Operation {
      */
     data class PUSH(
         override val bits: Bits  // 16 or 32
-    ) : OperationOne {
+    ) : MnemonicOne {
 
         init {
             require(bits == Bits.B16 || bits == Bits.B32) {
@@ -46,7 +46,7 @@ sealed interface OperationOne : Operation {
      */
     data class POP(
         override val bits: Bits  // 16 or 32
-    ) : OperationOne {
+    ) : MnemonicOne {
 
         init {
             require(bits == Bits.B16 || bits == Bits.B32) {

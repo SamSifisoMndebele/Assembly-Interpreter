@@ -98,7 +98,7 @@ class InstructionOne(
                     // mod = 00 (no displacement) / 01 (8-bit disp) / 10 (32-bit disp)
                     // reg = 6 (PUSH)
                     // rm  = register code for memory base
-                    val disp = operand.disp ?: 0
+                    val disp = operand.displacement ?: 0
                     if (operand.base == null && operand.index != null) {
                         val indexCode = operand.index.cpuRegister.code
                         val modrm: UByte = 0x00u.toUByte() or (6u shl 3).toUByte() or 0x04u // rm=100 → SIB present

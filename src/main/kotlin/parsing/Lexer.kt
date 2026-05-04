@@ -49,7 +49,7 @@ abstract class Lexer(source: String) {
             val lineNumber = i + 1
             while (line.isNotEmpty()) {
                 val token = line.nextToken(lineNumber) ?: error("Unknown token at line $lineNumber: '$line'")
-                tokens += token
+                tokens.add(token)
                 line = line.substring(token.length).trim()
                 if (token is Token.DataDir) while (line.startsWith('(') && line.endsWith(')')) {
                     line = line.substring(1, line.length - 1).trim()
@@ -70,7 +70,9 @@ abstract class Lexer(source: String) {
         match<Token.Segment>(line)?.let { return it }
         match<Token.DataDir>(line)?.let { return it }
         match<Token.Label>(line)?.let {
-            if (!labels.add(it.text)) TODO("Label '${it.text}' is already defined at line $line")
+            if (!labels.add(it.text)) {
+                error("Syntax Error: Label '${it.text}' is already defined. Cannot redefine at line $line")
+            }
             return it
         }
         match<Token.Uninitialized>(line)?.let { return it }
@@ -180,6 +182,17 @@ abstract class Lexer(source: String) {
         while (++index < tokens.size) {
             val token = tokens[index]
             if (token is Token.Segment && token.text.contains("code", ignoreCase = true)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun toStackSegment(): Boolean {
+        index = -1
+        while (++index < tokens.size) {
+            val token = tokens[index]
+            if (token is Token.Segment && token.text.contains("stack", ignoreCase = true)) {
                 return true
             }
         }

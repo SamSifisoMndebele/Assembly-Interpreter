@@ -1,7 +1,6 @@
-@file:OptIn(ExperimentalUnsignedTypes::class)
-
 package utils
 
+@OptIn(ExperimentalUnsignedTypes::class)
 fun UInt.toUBytes(type: String, line: Int): UByteArray {
     return when (type.uppercase()) {
         "BYTE", "DB" -> ubyteArrayOf((this and 0xFFu).toUByte())
@@ -32,6 +31,7 @@ fun UInt.toUBytes(type: String, line: Int): UByteArray {
     }
 }
 
+@OptIn(ExperimentalUnsignedTypes::class)
 fun UInt.toUBytes(bits: Int, line: Int = -1): UByteArray {
     return when (bits) {
         8 -> ubyteArrayOf((this and 0xFFu).toUByte())
@@ -47,4 +47,24 @@ fun UInt.toUBytes(bits: Int, line: Int = -1): UByteArray {
         )
         else -> error("Unsupported bit size: $bits at line $line")
     }
+}
+
+fun String.removePrefixes(vararg prefix: String): String {
+    var string: String = this
+    for (pre in prefix) {
+        if (string.startsWith(pre)) {
+            string = string.substring(pre.length)
+        }
+    }
+    return string
+}
+
+fun String.removeSuffixes(vararg suffix: String): String {
+    var string: String = this
+    for (suf in suffix) {
+        if (string.endsWith(suf)) {
+            string = string.substring(0, length - suf.length)
+        }
+    }
+    return string
 }

@@ -11,14 +11,13 @@ import isa.MnemonicZero
  * @property mnemonic The specific zero-operand operation to be performed.
  * @property line The line number in the source code where this model.instruction was defined.
  */
-@OptIn(ExperimentalUnsignedTypes::class)
 class InstructionZero(
     override val mnemonic: MnemonicZero,
     override val line: Int
 ) : Instruction {
-    override fun encode(symbols: Map<String, Symbol>): UByteArray = when (mnemonic) {
-
-        else -> TODO()
+    override fun encode(symbols: Map<String, Symbol>): UByteArray {
+        // Zero-operand instructions just return their predefined opcode bytes
+        return mnemonic.encoding.opcode.toUByteArray()
     }
 
     override fun toString(): String = "$line: $mnemonic"

@@ -89,7 +89,13 @@ class Memory(bytes: Long = 65_536) {
      * @param addr The memory address to read from.
      * @return The 32-bit value read from memory.
      */
-    fun readDWord(addr: Long): UInt = mem[(addr / 4).toInt()]
+    fun readDWord(addr: Long): UInt {
+        val b0 = readByte(addr).toUInt()
+        val b1 = readByte(addr + 1).toUInt()
+        val b2 = readByte(addr + 2).toUInt()
+        val b3 = readByte(addr + 3).toUInt()
+        return b0 or (b1 shl 8) or (b2 shl 16) or (b3 shl 24)
+    }
 
     /**
      * Writes a 32-bit value to the specified memory address in little-endian format.
@@ -98,7 +104,10 @@ class Memory(bytes: Long = 65_536) {
      * @param value The 32-bit value to write.
      */
     fun writeDWord(addr: Long, value: UInt) {
-        mem[(addr / 4).toInt()] = value
+        writeByte(addr, (value and 0xFFu).toUByte())
+        writeByte(addr + 1, ((value shr 8) and 0xFFu).toUByte())
+        writeByte(addr + 2, ((value shr 16) and 0xFFu).toUByte())
+        writeByte(addr + 3, ((value shr 24) and 0xFFu).toUByte())
     }
 
     /**
@@ -136,23 +145,4 @@ class Memory(bytes: Long = 65_536) {
             if (addr >= end) break
         }
     }
-}
-
-// Testing
-fun main() {
-    val memory = Memory(64L)
-
-    // Example of writing and reading memory
-    memory.writeByte(0x00, 0xABu)
-    memory.writeByte(0x01, 0xCDu)
-    memory.writeWord(0x02, 0xEF01u)
-    memory.writeDWord(0x04, 0x12345678u)
-
-    memory.dumpMemory()
-
-    val reset = "\u001B[0m"
-    val red = "\u001B[31m"
-    println("$red Byte at 00: %02X $reset".format(memory.readByte(0x00).toShort()))
-    println("$red Word at 02: %04X $reset".format(memory.readWord(0x02).toShort()))
-    println("$red DWord at 04: %08X $reset".format(memory.readDWord(0x04).toShort()))
 }

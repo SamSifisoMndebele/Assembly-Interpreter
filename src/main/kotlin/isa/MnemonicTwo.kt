@@ -1,5 +1,7 @@
 package isa
 
+import kotlin.reflect.jvm.jvmName
+
 /**
  * Represents operations that involve two operands, typically a register and a register/memory location.
  *
@@ -14,6 +16,7 @@ sealed interface MnemonicTwo : Mnemonic {
     data object MOV8 : MnemonicTwo {
         override val encoding = Encoding(opcode = listOf(0x88u))
         override fun toString(): String = "mov"
+        override fun compareTo(other: Mnemonic): Int = this::class.jvmName.compareTo(other::class.jvmName)
     }
 
     /**
@@ -24,6 +27,7 @@ sealed interface MnemonicTwo : Mnemonic {
     data object MOV16 : MnemonicTwo {
         override val encoding = Encoding(opcode = listOf(0x89u))
         override fun toString(): String = "mov"
+        override fun compareTo(other: Mnemonic): Int = this::class.jvmName.compareTo(other::class.jvmName)
     }
 
     /**
@@ -33,6 +37,7 @@ sealed interface MnemonicTwo : Mnemonic {
     data object MOV32 : MnemonicTwo {
         override val encoding = Encoding(opcode = listOf(0x89u))
         override fun toString(): String = "mov"
+        override fun compareTo(other: Mnemonic): Int = this::class.jvmName.compareTo(other::class.jvmName)
     }
 
     /**

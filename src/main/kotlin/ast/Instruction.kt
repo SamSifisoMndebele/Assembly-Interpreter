@@ -16,7 +16,6 @@ import isa.Mnemonic
  * The `decode` companion object function provides functionality to parse a sequence of bytes
  * (machine code) back into a list of `Instruction` objects.
  */
-@OptIn(ExperimentalUnsignedTypes::class)
 sealed interface Instruction {
     /**
      * The operation to be performed.
@@ -428,7 +427,6 @@ sealed interface Instruction {
 }
 
 
-@OptIn(ExperimentalUnsignedTypes::class)
 fun main() {
 //    val instructions = listOf(
 //        InstructionTwo(OperationTwo.MOV(Bits.B32, Bits.B32), Register(CpuRegister.EAX), Immediate(0x50u, Bits.B32), 1),

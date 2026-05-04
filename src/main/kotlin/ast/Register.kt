@@ -8,5 +8,5 @@ import isa.CpuRegister
  * @property cpuRegister The register being used as an operand.
  */
 data class Register(val cpuRegister: CpuRegister) : Operand {
-    override fun toString(): String = cpuRegister.name
+    override fun toString(): String = cpuRegister.name.lowercase()
 }

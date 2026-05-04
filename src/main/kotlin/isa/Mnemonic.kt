@@ -1,5 +1,7 @@
 package isa
 
+import kotlin.reflect.jvm.jvmName
+
 /**
  * Represents a generic CPU model.operation.
  * This is a sealed interface, meaning all possible implementations are defined within this file.
@@ -10,7 +12,7 @@ package isa
  *
  * Each model.operation has an associated [opcode].
  */
-sealed interface Mnemonic {
+sealed interface Mnemonic: Comparable<Mnemonic> {
     val encoding: Encoding
 
     companion object {
@@ -21,7 +23,13 @@ sealed interface Mnemonic {
                 MnemonicTwo::class
             ).flatMap { parent ->
                 parent.sealedSubclasses.mapNotNull { it.objectInstance }
-            }.toSet()
+            }.toSortedSet()
         }
     }
+
+    override fun compareTo(other: Mnemonic): Int = toString().compareTo(other.toString())
+}
+
+fun main() {
+    println(Mnemonic.allMnemonics)
 }

@@ -1,24 +1,17 @@
 package parsing
 
 import assemble.Symbol
-import ast.DataEntry
-import ast.Identifier
-import ast.Immediate
-import ast.Instruction
-import ast.InstructionOne
-import ast.InstructionTwo
-import ast.InstructionZero
-import ast.Register
+import ast.*
+import ast.Operand.Immediate
 import isa.CpuRegister
 import isa.MnemonicOne
 import isa.MnemonicTwo
 import isa.MnemonicZero
 import machine.Memory
-import model.operand.*
 import utils.toUBytes
-import java.io.File
-import java.io.FileNotFoundException
-import kotlin.system.exitProcess
+import utils.removePrefixes
+import utils.removeSuffixes
+import kotlin.math.min
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class Parser(source: String, private val memory: Memory) : Lexer(source) {
@@ -29,7 +22,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
     fun getSymbols(): Map<String, Symbol> = symbols // Updated return type
 
     // Segment base addresses and alignment
-    val codeSegmentBase: Long = 0L
+    var codeSegmentBase: Long = 0L
     var dataSegmentBase: Long = 0L
         private set
     val stackSegmentBase: Long = memory.bytes
@@ -38,77 +31,82 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         println("Tokens:")
         getTokens().forEach { println(it) } // Debug: Print all tokens first
 
+        parseStackSegment()
+
         // 1. Parse DATA segment
-//        parseDataSegment()
+        parseDataSegment()
 
         // 2. Calculate DATA segment base address
-//        dataSegmentBase = getTokens().count { it.kind == Token1.Kind.OPERATION } * 16L
-//        if (dataSegmentBase >= memory.bytes) error("Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}).")
-//        if (stackSegmentBase < dataSegmentBase) error("Stack segment base ($stackSegmentBase) is before data segment base ($dataSegmentBase).")
+        dataSegmentBase = instructions.size * 16L
+        if (dataSegmentBase >= memory.bytes) error("Calculated data segment base ($dataSegmentBase) is outside memory bounds (${memory.bytes}).")
+        if (stackSegmentBase < dataSegmentBase) error("Stack segment base ($stackSegmentBase) is before data segment base ($dataSegmentBase).")
 
-//        val dataSegStr = dataSegmentBase.toString(16)
-//        val codeSegStr = codeSegmentBase.toString(16)
-//        val stackSegStr = stackSegmentBase.toString(16)
+        val dataSegStr = dataSegmentBase.toString(16)
+        val codeSegStr = codeSegmentBase.toString(16)
+        val stackSegStr = stackSegmentBase.toString(16)
 
-//        println("\n--- Segmentation --- ")
-//        println("Code Segment Base  : ${codeSegStr}h")
-//        println("Data Segment Base  : ${dataSegStr}h")
-//        println("Stack Segment Base : ${stackSegStr}h")
+        println("\n--- Segmentation --- ")
+        println("Code Segment Base  : ${codeSegStr}h")
+        println("Data Segment Base  : ${dataSegStr}h")
+        println("Stack Segment Base : ${stackSegStr}h")
 
         // For actual memory writing address
-//        var memoryCursor = 0L
+        var memoryCursor = 0L
 
         // 3. Write DATA segment to memory
-//        memoryCursor = dataSegmentBase
-//        dataEntries.forEach { dataEntry ->
-//            symbols[dataEntry.name] = Symbol(dataEntry.type, dataEntry.length, memoryCursor)
-//            if (dataEntry.bytes != null) {
-//                for (byte in dataEntry.bytes) {
-//                    memory.writeByte(memoryCursor++, byte)
-//                }
-//            } else {
-//                memory.writeByte(memoryCursor++, 0u.toUByte())
-//            }
-//        }
-//        if (dataSegmentBase < memory.bytes) {
-//            println("\nMemory content of Data Segment [${dataSegStr}h, ${(memoryCursor-1).toString(16)}h]:")
-//            val startAddr = dataSegmentBase
-//            val endAddr = min(memoryCursor, memory.bytes)
-//            memory.dumpMemory(start = startAddr, end = endAddr)
-//        }
-//        println("\nSymbol table:")
-//        println("+------------------+----------+-----+")
-//        println("|$BOLD Name             $RESET|$BOLD Address  $RESET|$BOLD Len $RESET|")
-//        println("+------------------+----------+-----+")
-//        symbols.forEach { (name, symbol) ->
-//            val hex = String.format("%08X", symbol.address)
-//            val coloredHex = "$YELLOW${hex.substring(0, 7)}$BLUE${hex.last()}$RESET"
-//            println(String.format("| %-16s | $coloredHex | %-3d |", name, symbol.length))
-//        }
-//        println("+------------------+----------+-----+")
+        memoryCursor = dataSegmentBase
+        dataEntries.forEach { dataEntry ->
+            symbols[dataEntry.name] = Symbol(dataEntry.type, dataEntry.length, memoryCursor)
+            if (dataEntry.bytes != null) {
+                for (byte in dataEntry.bytes) {
+                    memory.writeByte(memoryCursor++, byte)
+                }
+            } else {
+                memory.writeByte(memoryCursor++, 0u.toUByte())
+            }
+        }
+        if (dataSegmentBase < memory.bytes) {
+            println("\nMemory content of Data Segment [${dataSegStr}h, ${(memoryCursor-1).toString(16)}h]:")
+            val startAddr = dataSegmentBase
+            val endAddr = min(memoryCursor, memory.bytes)
+            memory.dumpMemory(start = startAddr, end = endAddr)
+        }
+        println("\nSymbol table:")
+        println("+------------------+----------+-----+")
+        println("|$BOLD Name             $RESET|$BOLD Address  $RESET|$BOLD Len $RESET|")
+        println("+------------------+----------+-----+")
+        symbols.forEach { (name, symbol) ->
+            val hex = String.format("%08X", symbol.address)
+            val coloredHex = "$YELLOW${hex.substring(0, 7)}$BLUE${hex.last()}$RESET"
+            println(String.format("| %-16s | $coloredHex | %-3d |", name, symbol.length))
+        }
+        println("+------------------+----------+-----+")
+
+        // Set the code segment to start exactly where the data segment ended
+        codeSegmentBase = memoryCursor
 
         // 4. Parse CODE segment
-//        parseCodeSegment()
+        parseCodeSegment()
 
         // 5. Write CODE segment to memory
-//        memoryCursor = codeSegmentBase
-//        instructions.forEach { instruction ->
-//            val encodedBytes = instruction.encode(symbols) // Pass Map<String, Symbol>
-//            encodedBytes.forEach { byte ->
-//                if (memoryCursor < memory.bytes) { // Check memory bounds
-//                    memory.writeByte(memoryCursor, byte)
-//                    memoryCursor++
-//                } else {
-//                    error("Memory overflow while writing code segment at address $memoryCursor. Max memory: ${memory.bytes}")
-//                }
-//            }
-//        }
-//        if (codeSegmentBase < memory.bytes) {
-//            println("\nMemory content of Code Segment start [${codeSegStr}h, ${(memoryCursor-1).toString(16)}h]:")
-//            val startAddr = codeSegmentBase
-//            val endAddr = min(memoryCursor, memory.bytes)
-//            memory.dumpMemory(start = startAddr, end = endAddr)
-//        }
+        memoryCursor = codeSegmentBase
+        instructions.forEach { instruction ->
+            val encodedBytes = instruction.encode(symbols) // Pass Map<String, Symbol>
+            encodedBytes.forEach { byte ->
+                if (memoryCursor < memory.bytes) { // Check memory bounds
+                    memory.writeByte(memoryCursor, byte)
+                    memoryCursor++
+                } else {
+                    error("Memory overflow while writing code segment at address $memoryCursor. Max memory: ${memory.bytes}")
+                }
+            }
+        }
+        if (codeSegmentBase < memory.bytes) {
+            println("\nMemory content of Code Segment start [${codeSegStr}h, ${(memoryCursor-1).toString(16)}h]:")
+            val startAddr = codeSegmentBase
+            val endAddr = min(memoryCursor, memory.bytes)
+            memory.dumpMemory(start = startAddr, end = endAddr)
+        }
     }
 
     private fun parseDataSegment() {
@@ -141,9 +139,19 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
     }
 
     private fun parseStackSegment() {
-        TODO("Stack segment parsing not yet implemented")
-    }
+        if (toStackSegment()) {
+            println("Stack segment detected. Dynamic stack allocated at ${stackSegmentBase.toString(16)}h")
 
+            // Consume tokens until the next segment or EOF to avoid parsing errors
+            while (hasToken()) {
+                val next = peekToken()
+                if (next is Token.Segment) {
+                    break // Stop consuming if we hit .code or .data
+                }
+                nextToken() // Consume the stack size/definitions (e.g., 4096)
+            }
+        }
+    }
     private fun parseDataDefinition(token: Token) {
         require(token is Token.Identifier)
         val name = token.text
@@ -200,6 +208,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                 }
             } else break // No comma, so end of values for this definition
         }
+
         if (firstValue) error("Expected data value for $type at line $line but found none.")
         return DataValue(type, values.toUByteArray())
     }
@@ -222,7 +231,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         }?.objectInstance as MnemonicOne?
         if (operationOne != null) {
             if (!hasToken()) error("Expected operand for $operationOne at line $line, but found no more tokens.")
-            val operand = nextOperand(operationOne.bits)
+            val operand = nextOperand()
             instructions.add(InstructionOne(operationOne, operand, line))
             return
         }
@@ -232,13 +241,13 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         }?.objectInstance as MnemonicTwo?
         if (operationTwo != null) {
             if (!hasToken()) error("Missing or invalid destination operand for $operationTwo at line $line")
-            val destOperand = nextOperand(operationTwo.bits)
+            val destOperand = nextOperand()
             if (!hasToken() || nextToken() !is Token.Comma) {
                 if (hasPrevious()) previousToken()
                 error("Expected comma after destination operand for $operationTwo at line $line")
             }
             if (!hasToken()) error("Missing or invalid source operand for $operationTwo at line $line")
-            val srcOperand = nextOperand(operationTwo.bits)
+            val srcOperand = nextOperand()
             instructions.add(InstructionTwo(operationTwo, destOperand, srcOperand, line))
             return
         }
@@ -246,15 +255,30 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         error("Unknown operation '${token.text}' at line $line")
     }
 
-    private fun nextOperand(bits: Bits): Operand {
+    private fun nextOperand(): Operand {
         return when (val token = nextToken()) {
             is Token.Register -> Register(CpuRegister.valueOf(token.text.uppercase()))
-            is Token.HexNumber -> Immediate(token.text.removePrefix("0x").removeSuffix("h").toUInt(16))
-            is Token.DecNumber -> Immediate(token.text.toUInt())
-            is Token.BinNumber -> Immediate(token.text.removePrefix("0b").removeSuffix("b").toUInt(2))
-            is Token.OctNumber -> Immediate(token.text.removePrefix("0o").removeSuffix("o").toUInt(8))
+            is Token.HexNumber -> Immediate(token.text.removeSuffix("h").removePrefix("0x").toUInt(16))
+            is Token.DecNumber -> Immediate(token.text.removeSuffix("b").toUInt())
+            is Token.BinNumber -> Immediate(token.text.removeSuffix("b").removePrefix("0b").toUInt(2))
+            is Token.OctNumber -> Immediate(token.text.removeSuffixes("o", "q").removePrefixes("0o", "0q").toUInt(8))
             is Token.Identifier -> Identifier(token.text)
-            is Token.Text -> TODO("String operand parsing not yet implemented")
+            is Token.Text -> {
+                val rawText = token.text.trim('\'', '"')
+
+                if (rawText.length <= 4) {
+                    // MASM allows 1 to 4-character strings as Immediate numbers.
+                    // It packs them into a 32-bit integer (e.g., 'ABCD' -> 0x41424344)
+                    var numericValue = 0u
+                    for (char in rawText) {
+                        numericValue = (numericValue shl 8) or char.code.toUInt()
+                    }
+                    Immediate(numericValue)
+                } else {
+                    // Strict Error: Standard x86 cannot push strings longer than 4 bytes directly.
+                    error("String literal \"$rawText\" is too long for an instruction operand at line ${token.line}. Define long strings in the .data segment.")
+                }
+            }
             is Token.Label -> Label(token.text)
             is Token.LBracket -> {
                 // Memory operand parsing: [base + index*scale + displacement]
@@ -326,7 +350,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
                     }
                 }
 
-                Memory(base, index, scale, displacement)
+                ast.Memory(base, index, scale, displacement)
             }
             else -> error("Unknown or unexpected operand type: ${token::class.simpleName} ('${token.text}') at line ${token.line}")
         }
@@ -339,7 +363,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         const val BOLD = "\u001B[1m"
 
         private fun Token.toUInt(): UInt {
-            require(isNumber) { "Token1 is not a number: $this" }
+            require(isNumber) { "Token is not a number: $this" }
             return when (this) {
                 is Token.HexNumber -> text.removePrefix("0x").removeSuffix("h").toUInt(16)
                 is Token.BinNumber -> text.removePrefix("0b").removeSuffix("b").toUInt(2)
@@ -350,7 +374,7 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
         }
 
         private fun Token.toLong(): Long {
-            require(isNumber) { "Token1 is not a number: $this" }
+            require(isNumber) { "Token is not a number: $this" }
             return when (this) {
                 is Token.HexNumber -> text.removePrefix("0x").removeSuffix("h").toLong(16)
                 is Token.BinNumber -> text.removePrefix("0b").removeSuffix("b").toLong(2)
@@ -383,65 +407,4 @@ class Parser(source: String, private val memory: Memory) : Lexer(source) {
             }
         }
     }
-}
-
-/*fun dumpMemorySegments(memory: Memory, parser: Parser) {
-    val dataSegStr = parser.dataSegmentBase.toString(16)
-    val codeSegStr = parser.codeSegmentBase.toString(16)
-    val stackSegStr = parser.stackSegmentBase.toString(16)
-
-    println("\n--- Main function reporting --- ")
-    println("Parser instance created. Check console output for parsing details and memory layout.")
-    println("Code Segment Base (from parser): ${codeSegStr}h")
-    println("Data Segment Base (from parser): ${dataSegStr}h")
-    println("Stack Segment Base (from parser): ${stackSegStr}h")
-
-    if (parser.dataSegmentBase < memory.bytes) {
-        println("\nMemory content of Data Segment start (${dataSegStr}h):")
-        val startAddr = parser.dataSegmentBase
-        val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
-        memory.dumpMemory(start = startAddr, end = endAddr)
-    }
-
-    if (parser.codeSegmentBase < memory.bytes) {
-        println("\nMemory content of Code Segment start (${codeSegStr}h):")
-        val startAddr = parser.codeSegmentBase
-        val endAddr = min(startAddr + 128, memory.bytes) // Print up to 128 bytes or end of memory
-        memory.dumpMemory(start = startAddr, end = endAddr)
-    }
-
-    println("\nMemory content of Stack Segment start (${stackSegStr}h):")
-    val endAddr = parser.stackSegmentBase
-    val startAddr = max(endAddr - 128, 0) // Print up to 128 bytes or end of memory
-    memory.dumpMemory(start = startAddr, end = endAddr)
-}
-
-fun dumpSymbolTable(symbols: Map<String, Long>) {
-    println("+------------------+----------+")
-    println("| Name             | Address  |")
-    println("+------------------+----------+")
-    symbols.forEach { (name, address) ->
-        println(String.format("| %-16s | %-8X |", name, address))
-    }
-    println("+------------------+----------+")
-}*/
-
-fun main() {
-    val src = try {
-        File("src/main/kotlin/main.asm").readText()
-    } catch (e: FileNotFoundException) {
-        println("Error: ${e.message}, Source file not found: src/main/kotlin/main.asm")
-        println("Please provide a valid path as a command-line argument or make sure the default file exists.")
-        exitProcess(1)
-    }
-
-    val memory = Memory(1024L) // Example: 1KB of memory
-    val parser = Parser(src, memory)
-
-//    // --- Symbol table ---
-//    dumpSymbolTable(parser.getSymbols())
-//    // --- Memory dump ---
-//    dumpMemorySegments(memory, parser)
-//    // --- Full memory dump ---
-//    memory.dumpMemory()
 }

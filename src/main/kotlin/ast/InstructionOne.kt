@@ -19,12 +19,11 @@ class InstructionOne(
 ) : Instruction {
     override fun encode(symbols: Map<String, Symbol>): UByteArray {
         return when (mnemonic) {
-            MnemonicOne.POP -> TODO()
             MnemonicOne.PUSH -> when(operand) {
-                is Immediate -> {
+                is Operand.Immediate -> {
                     // PUSH imm16 → 0x66 0x68 + imm16
                     // PUSH imm32 → 0x68 + imm32 (little-endian)
-                    val bytes = operand.value.toUBytes(32) // Assuming 32-bit for now
+                    val bytes = operand.value.toUBytes(32, line)
                     ubyteArrayOf(0x68u, *bytes)
                 }
                 is Register -> {
@@ -115,6 +114,32 @@ class InstructionOne(
                         ubyteArrayOf(0xFFu, modrm, *dispBytes)
                     }
                 }
+            }
+            MnemonicOne.POP -> when(operand) {
+                is Register -> {
+                    when {
+                        operand.cpuRegister.is16Bit -> {
+                            ubyteArrayOf(0x66u, (0x58u + operand.cpuRegister.code).toUByte()) // POP r16
+                        }
+                        operand.cpuRegister.is32Bit -> {
+                            ubyteArrayOf((0x58u + operand.cpuRegister.code).toUByte()) // POP r32
+                        }
+                        // Segment registers
+                        operand.cpuRegister == CpuRegister.DS -> ubyteArrayOf(0x1Fu)
+                        operand.cpuRegister == CpuRegister.ES -> ubyteArrayOf(0x07u)
+                        operand.cpuRegister == CpuRegister.SS -> ubyteArrayOf(0x17u)
+                        else -> error("POP for register ${operand.cpuRegister.name} is not supported.")
+                    }
+                }
+                is Memory -> {
+                    // POP r/m16/32 is opcode 0x8F /0
+                    val baseRegCode = operand.base?.cpuRegister?.code ?: 0u
+                    val mod: UByte = if (operand.displacement == null) 0x00u else 0x80u // Simplified for now
+                    val rm = baseRegCode and 0x07u
+                    val modrm = mod or (0u shl 3).toUByte() or rm // /0 = reg=0
+                    ubyteArrayOf(0x8Fu, modrm)
+                }
+                else -> error("Invalid operand for POP: $operand at line $line")
             }
         }
     }
